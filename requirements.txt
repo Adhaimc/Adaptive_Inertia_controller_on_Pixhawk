@@ -1,0 +1,26 @@
+# Core drone control
+dronekit==2.9.2
+pymavlink==2.4.41
+
+# Configuration and data handling
+pyyaml==6.0.1
+python-dotenv==1.0.0
+
+# Logging and monitoring
+colorlog==6.8.0
+
+# Data processing
+numpy==1.24.3
+pandas==2.0.3
+
+# Utilities
+pyserial==3.5
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Optional: For advanced features
+# opencv-python==4.8.1.78  # For computer vision
+# matplotlib==3.8.2  # For plotting flight paths
+# geopy==2.4.1  # For geographic calculations
