@@ -10,7 +10,6 @@ Run all three in one session. Follow the prompts!
 
 import sys
 import time
-import input as user_input
 from src.rc_override_controller import RCOverrideController, FlightMode
 
 
