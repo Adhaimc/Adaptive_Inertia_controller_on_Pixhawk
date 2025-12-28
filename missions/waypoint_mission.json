@@ -1,0 +1,70 @@
+{
+  "name": "Custom Waypoint Mission",
+  "description": "Multi-waypoint autonomous flight with varying altitudes",
+  "default_altitude": 15.0,
+  "default_speed": 5.0,
+  "waypoints": [
+    {
+      "id": 1,
+      "lat": 37.7749,
+      "lon": -122.4194,
+      "alt": 10.0,
+      "description": "Initial waypoint - low altitude"
+    },
+    {
+      "id": 2,
+      "lat": 37.7752,
+      "lon": -122.4195,
+      "alt": 15.0,
+      "description": "Climb to medium altitude"
+    },
+    {
+      "id": 3,
+      "lat": 37.7755,
+      "lon": -122.4192,
+      "alt": 20.0,
+      "description": "Climb to higher altitude"
+    },
+    {
+      "id": 4,
+      "lat": 37.7758,
+      "lon": -122.4194,
+      "alt": 20.0,
+      "description": "Maintain high altitude"
+    },
+    {
+      "id": 5,
+      "lat": 37.7756,
+      "lon": -122.4197,
+      "alt": 15.0,
+      "description": "Descend to medium altitude"
+    },
+    {
+      "id": 6,
+      "lat": 37.7753,
+      "lon": -122.4196,
+      "alt": 10.0,
+      "description": "Descend to low altitude"
+    },
+    {
+      "id": 7,
+      "lat": 37.7750,
+      "lon": -122.4195,
+      "alt": 10.0,
+      "description": "Return near start position"
+    }
+  ],
+  "safety": {
+    "max_altitude": 25.0,
+    "min_altitude": 5.0,
+    "max_speed": 8.0,
+    "geofence_radius": 150.0
+  },
+  "notes": [
+    "This mission demonstrates variable altitude flying",
+    "Replace coordinates with your actual GPS location",
+    "Ensure clear airspace at all altitudes",
+    "Monitor battery level throughout flight",
+    "Mission ends with automatic RTL"
+  ]
+}

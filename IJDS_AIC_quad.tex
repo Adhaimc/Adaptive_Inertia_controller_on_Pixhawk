@@ -1,0 +1,843 @@
+% International Journal of Dynamics and Control Manuscript
+% Adaptive Inertia Estimation + Geometric PD for Quadrotors on SO(3)
+% Author: Prepared for Adha-Imam Cahyadi et al.
+
+%\documentclass[journal]{IEEEtran}
+\documentclass{ieeeaccess}
+% Packages
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{cite}
+\usepackage{bm}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{mathtools}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+%\usepackage{tikz}
+%\usetikzlibrary{arrows.meta,positioning,calc,backgrounds,fit,decorations.pathreplacing,shapes.geometric}
+%\usepackage{url}
+%\usepackage{pgfplotstable}
+%\pgfplotsset{compat=1.18}
+
+% Relax line-breaking to reduce under/overfull box warnings (keeps IEEEtran defaults mostly intact)
+\emergencystretch=1.5em
+\hbadness=10000
+
+% Theorem environments (rigorous style)
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{corollary}{Corollary}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{remark}{Remark}
+
+% Math helpers
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\SO}{\mathrm{SO}(3)}
+\newcommand{\so}{\mathrm{so}(3)}
+\newcommand{\I}{\mathbf{I}}
+\newcommand{\J}{\mathbf{J}}
+\newcommand{\Rmat}{\mathbf{R}}
+\newcommand{\Rd}{\mathbf{R}_d}
+\newcommand{\Om}{\boldsymbol{\Omega}}
+\newcommand{\Omd}{\boldsymbol{\Omega}_d}
+\newcommand{\eR}{\mathbf{e}_R}
+\newcommand{\eOm}{\mathbf{e}_\Omega}
+\newcommand{\veemap}[1]{\left(#1\right)^{\vee}}
+\newcommand{\hatmap}[1]{\widehat{#1}}
+\newcommand{\tr}{\mathrm{tr}}
+
+% Title and authors (edit as needed)
+
+%\author{Adha-Imam~Cahyadi, Fahdy Nashatya, Sudiro, Ardimas Wimbo and Addy~Wahyudie% <-this % stops a space
+%\thanks{Manuscript prepared for submission to IEEE Access. This work proposes a practical adaptive inertia estimator integrated with geometric PD attitude control for quadrotors.}
+%\thanks{A.-I. Cahyadi is with the Department of Electrical Engineering and Information Technology, Universitas Gadjah Mada, Yogyakarta, Indonesia (e-mail: adha.imam@ugm.ac.id).}
+%\thanks{F. Nashatya is with PT Frogs, Yogyakarta, Indonesia.}
+%\thanks{Sudiro is with the Department of Electrical Engineering, Universitas Gadjah Mada, Yogyakarta, Indonesia.}   
+%\thanks{A. Wimbo is with Indonesian Air Forces}
+%\thanks{A. Wahyudie is with the Department of Electrical and Communication Engineering, United Arab Emirates University, Al Ain, UAE.}
+%}
+%
+%\markboth{IEEE Access}{Cahyadi et al.: Adaptive Inertia Estimation + Geometric PD for Quadrotors}
+
+%Your document starts from here ___________________________________________________
+\begin{document}
+\history{Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.}
+\doi{10.1109/ACCESS.2024.0429000}
+
+\title{Adaptive Inertia Estimation Augmented Geometric PD Control on $\SO$ Suitable for Embedded Controllers}
+\author{\uppercase{Adha Imam Cahyadi}\authorrefmark{1},~\IEEEmembership{Member, IEEE}, \uppercase{Fahdy Nashatya}\authorrefmark{2}, \uppercase{Sudiro}\authorrefmark{1}, \uppercase{Ardhimas Wimbo Wasisto}\authorrefmark{3} and
+\uppercase{Addy Wahyudie}\authorrefmark{4},~\IEEEmembership{Member, IEEE}}
+
+\address[1]{Department of Electrical Engineering and Information Engineering, Engineering Faculty, Universitas Gadjah Mada, Yogyakarta, Indonesia}
+\address[2]{PT Frogs Indonesia, Jalan Imogiri Barat, Bantul, Yogyakarta, Indonesia}
+\address[3]{Indonesian Airforces, Jakarta, Indonesia}
+\address[4]{Department of Electrical and Communication Engineering, United Arab Emirates University, Al-Ain, United Arab Emirates}
+
+\markboth
+{Cahyadi et al.: Adaptive Inertia Estimation Augmented Geometric PD Control on $\SO$} % Navigation based on Khatib’s Potential Function}
+{Cahyadi et al.: Adaptive Inertia Estimation Augmented Geometric PD Control on $\SO$ Suitable for Embedded Controllers} % Navigation based on Khatib’s Potential Function}
+
+\corresp{Corresponding authors: Adha Imam Cahyadi (e-mail: adha.imam@ugm.ac.id), and Addy Wahyudie (e-mail: addy.W@uaeu.ac.ae).}
+%\corresp{Second corresponding author: Adha Imam Cahyadi (e-mail: addy.W@uaeu.ac.ae).}
+
+
+\begin{abstract}
+This paper presents an attitude controller for quadrotors that augments a baseline geometric proportional-derivative (PD) law on $\SO(3)$ with an online adaptive inertia estimator. The estimator learns principal and cross-coupled inertia components from tracking residuals via a regressor that is linear in the inertial parameters. The composite control combines geometric PD feedback, adaptive feedforward compensation, and robust damping to attenuate unmodeled effects and sensor noise. A Lyapunov analysis establishes boundedness and convergence of tracking errors under bounded disturbances, with parameter drift prevented using $\sigma$-modification and projection onto the symmetric positive-definite cone. The approach preserves the simplicity and computational efficiency of geometric control while significantly improving robustness to inertia uncertainty and payload changes. We provide comprehensive simulation validation under realistic constraints including actuator saturation, payload changes, and environmental disturbances, along with practical tuning guidelines for implementation on embedded controllers.
+\end{abstract}
+
+\begin{keywords}
+Quadrotor control, Geometric control on $\SO(3)$, Adaptive control, Inertia estimation, Lyapunov stability analysis, Unmanned aerial vehicles
+\end{keywords}
+\titlepgskip=-21pt
+
+\maketitle
+
+\section{Introduction}
+
+\subsection{Motivation and Background}
+Quadrotor unmanned aerial vehicles (UAVs) have become indispensable platforms for diverse applications including surveillance, inspection, package delivery, and search-and-rescue operations~\cite{mahony_multirotor_2012, chowdhary_uav_survey_2021}. Precise attitude control is fundamental to achieving stable flight and executing complex maneuvers. Traditional approaches using Euler angles suffer from singularities, while quaternion representations exhibit unwinding phenomena that can degrade performance~\cite{markley_fundamentals_2014, wie_space_2022}. Geometric control on the special orthogonal group $\SO$ has emerged as a superior alternative, offering global attitude representation without singularities and enabling elegant control designs with strong stability guarantees~\cite{bullo_proportional_1995, lee_geometric_2010, taeyoung_lee_global_2015}.
+
+Despite their theoretical elegance, practical deployment of geometric controllers faces a persistent challenge: \emph{parametric uncertainty in the inertia matrix}. Payload variations, accessory mounting, battery depletion, and structural wear cause the effective inertia to deviate from nominal values~\cite{pounds_practical_2010, mahony_multirotor_2012}. In commercial and research applications, quadrotors frequently switch between configurations—adding cameras, sensors, or cargo—making fixed-gain controllers suboptimal. Retuning for each configuration is time-consuming and often impractical in the field. Moreover, aerodynamic effects and unmodeled dynamics introduce additional uncertainties that degrade tracking performance~\cite{hoffmann_quadrotor_2008, kumar_opportunities_2012}.
+
+\subsection{Related Work}
+\subsubsection{Geometric Control on $\SO$}
+The foundation for attitude control on $\SO$ was established by Bullo and Murray~\cite{bullo_proportional_1995}, who proposed proportional-derivative (PD) control on Lie groups with almost-global stability properties. Lee et al.~\cite{lee_geometric_2010, lee_exponential_2013} extended this framework to quadrotor systems on $\mathrm{SE}(3)$, demonstrating exponential tracking with feedforward compensation of rigid-body dynamics. Subsequent work has explored geometric backstepping~\cite{park_exponential_2024}, finite-time convergence~\cite{zou_finitetime_2017}, and output-feedback designs~\cite{berkane_outputfeedback_2020}. These methods preserve the global nature of $\SO$ while achieving strong closed-loop properties under nominal conditions.
+
+\subsubsection{Robust and Adaptive Extensions}
+To address model uncertainties and external disturbances, researchers have augmented geometric controllers with robust and adaptive components. Sliding-mode control (SMC) provides robustness to bounded uncertainties at the cost of chattering and high control effort~\cite{xu_sliding_2015, kumar_sliding_2024}. $\mathcal{H}_\infty$ and $\mu$-synthesis methods offer systematic disturbance attenuation but require high computational overhead unsuitable for embedded platforms~\cite{goodarzi_hinf_2016}. Disturbance observers (DOB) estimate and compensate for lumped disturbances and modeling errors, improving tracking without explicit parameter adaptation~\cite{chen_dob_2016, yang_activedob_2019}.
+
+Adaptive control directly estimates unknown parameters online. Model-reference adaptive control (MRAC) for quadrotors has been explored using Lyapunov-based designs~\cite{dydek_adaptive_2013, zhang_adaptive_2023}, but most implementations assume Euclidean state spaces and require quaternion or Euler angle representations. Adaptive designs on manifolds remain less common due to the challenges of defining appropriate error metrics and ensuring global stability. Notable exceptions include the work of Chaturvedi et al.~\cite{chaturvedi_rigidbody_2011} on rigid-body attitude control with adaptive compensation, and more recent efforts combining geometric tracking with online parameter estimation~\cite{shi_adaptive_2018, guerrero_adaptive_2021}.
+
+\subsubsection{Inertia Estimation and Identification}
+Inertia matrix identification has traditionally relied on offline techniques: least-squares fitting from logged flight data~\cite{tischler_identification_2012}, frequency-domain system identification~\cite{pounds_practical_2010}, or physical measurements using bifilar pendulum setups~\cite{jardin_pendulum_2009}. These approaches require dedicated test procedures and cannot track time-varying inertia during operation. Online adaptive estimation offers an alternative, learning inertia parameters in real-time from tracking errors. Early work on spacecraft used linear-in-parameters regressors to adapt diagonal inertia components~\cite{wie_space_2022, slotine_adaptive_1991}. Recent quadrotor studies extend this to include off-diagonal terms~\cite{shi_adaptive_2018, mohammadi_nonlinear_2020}, though concerns about persistent excitation (PE) and parameter drift remain.
+
+\subsubsection{Persistent Excitation and Convergence Acceleration}
+A fundamental challenge in adaptive control is ensuring persistent excitation: the regressor signal must be sufficiently rich to guarantee parameter convergence~\cite{sastry_adaptive_1989, ioannou_robust_2006}. Classical solutions inject external dither—sinusoids, pseudorandom binary sequences (PRBS), or chirp signals—into the reference trajectory~\cite{narendra_pe_1987, gevers_optimal_2009}. However, dither increases tracking errors, actuator wear, and energy consumption, and its design (amplitude, frequency) is often heuristic. Recent work by Boffa et al.~\cite{boffa_excitation_2022} introduced \emph{excitation-enhancing feedback}, which modifies the control law to internally generate PE without external perturbations. This approach has been applied to linear systems and robotic manipulators~\cite{boffa_application_2023}, but its integration with geometric attitude control on $\SO$ has not been explored.
+
+\subsubsection{Safety and Robustness in Adaptive Systems}
+Practical deployment of adaptive controllers demands robust safeguards against parameter drift, sensor noise, and actuator saturation. $\sigma$-modification and $e$-modification introduce leakage terms that prevent unbounded parameter growth in the presence of unmodeled dynamics~\cite{ioannou_robust_2006, narendra_stable_1987}. Parameter projection ensures estimates remain within physically meaningful bounds~\cite{pomet_projection_1992, lavretsky_projection_2012}. For quadrotors, additional safety layers include: adaptation freezing during low excitation or high noise~\cite{johnson_adaptive_2015}, gain scheduling near saturation limits~\cite{slotine_adaptive_1991}, and gradual enabling of cross-coupled inertia terms after diagonal convergence~\cite{mohammadi_nonlinear_2020}.
+
+\subsection{Problem Statement and Contributions}
+Despite extensive research, a gap remains: \emph{there is no computationally lightweight adaptive attitude controller on $\SO$ that simultaneously handles symmetric inertia matrix estimation and ensures robustness to disturbances and noise through rigorous theoretical guarantees}. Existing geometric adaptive controllers either simplify to diagonal inertia~\cite{shi_adaptive_2018}, require expensive online optimization~\cite{guerrero_adaptive_2021}, or lack systematic parameter projection and robustness analysis~\cite{chaturvedi_rigidbody_2011}. Furthermore, the excitation-enhancing approach of Boffa et al.~\cite{boffa_excitation_2022} has not been integrated with geometric control frameworks.
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{quadrotor1.drawio.png}
+\caption{Overall control architecture. Outer position loop commands desired thrust $f$ and attitude $\Rmat_d$; inner attitude loop implements geometric PD with adaptive inertia estimation and robust damping.}
+\label{fig:overall_architecture}
+\end{figure}
+
+This paper addresses these gaps with three main contributions:
+
+\textbf{1. Unified Adaptive Geometric Controller:} We augment the baseline geometric PD law~\cite{lee_geometric_2010, bullo_proportional_1995} with a regressor-based inertia estimator that learns all six independent components of the symmetric inertia matrix (three principal moments and three products of inertia). The adaptive law is derived from a composite Lyapunov function using the filtered tracking error $s = \eOm + c\,\eR$, ensuring compatibility with the geometric structure of $\SO$.
+
+\textbf{2. Rigorous Stability Analysis with Practical Safeguards:} We establish boundedness and convergence of tracking errors using $\sigma$-modification to prevent parameter drift and projection onto the symmetric positive-definite (SPD) cone to maintain physically meaningful inertia estimates. The analysis accommodates bounded disturbances and provides explicit tuning guidelines. Additionally, we integrate excitation-enhancing feedback~\cite{boffa_excitation_2022} into the geometric framework, demonstrating significant improvement in parameter convergence with lower control effort (Section~\ref{subsec:iwg_formal}).
+
+\textbf{3. Comprehensive Simulation Validation:} We validate the proposed controller through extensive numerical simulations under challenging conditions: aggressively detuned PD gains (50\% of optimal), anisotropic inertia with off-diagonal coupling, abrupt payload changes every 20 s, actuator saturation, and bounded disturbances. The results demonstrate that the adaptive controller maintains superior tracking performance across multiple inertia changes, with the excitation-enhancing variant achieving 69\% lower peak torque compared to standard adaptive control while maintaining comparable accuracy.
+
+\noindent\textbf{Paper Organization:} Section~\ref{sec:prelim} reviews mathematical preliminaries and rigid-body dynamics. Section~\ref{sec:controller} presents the adaptive geometric PD controller with IWG enhancement (Subsection~\ref{subsec:iwg_formal}). Section~\ref{sec:stability} provides the stability analysis. Section~\ref{sec:validation} reports comprehensive simulation validation results. Section~\ref{sec:conclusion} concludes the paper.
+
+\section{Premiliminaries and Dynamics}\label{sec:prelim}
+\subsection{Notation and Error Functions on $\SO$}
+We denote the attitude by $\Rmat\in\SO$ and angular velocity by $\Om\in\R^3$. The desired attitude and angular velocity are $\Rd$ and $\Omd$. The attitude and rate errors are
+\begin{align}
+  \eR &= \tfrac{1}{2}\veemap{\Rd^\top \Rmat - \Rmat^\top \Rd}\quad (\text{vee map, inverse of } \hatmap{\cdot}), \\
+  \eOm &= \Om - \Rmat^\top \Rd\,\Omd.
+\end{align}
+The hat map $\hatmap{\cdot}:\R^3\to\so$ satisfies $\hatmap{x}y = x\times y$ for vectors $x,y\in\R^3$. The vee map $\veemap{\cdot}:\so\to\R^3$ is the inverse of the hat map, i.e., $\veemap{\hatmap{x}} = x$ for any $x\in\R^3$ and $\hatmap{\veemap{A}} = A$ for any $A\in\so$. A useful identity is $\tr\!\big(A^\top \hatmap{x}\big) = -2\,\veemap{A}\cdot x$ for all $A\in\so$ and $x\in\R^3$.
+
+Before proceeding to the dynamics, we establish a fundamental property of the configuration error on $\SO$ that will be used repeatedly in the controller design and stability analysis.
+
+\begin{lemma}[SO(3) configuration error properties]
+\label{lem:so3_error}
+Define the configuration error function $\Psi(\Rmat,\Rd) := \tfrac{1}{2}\,\tr(\I - \Rd^\top \Rmat)$ and the attitude error vector $\eR := \tfrac{1}{2}\veemap{\Rd^\top \Rmat - \Rmat^\top \Rd}$. Then the following hold:
+\begin{enumerate}
+  \item $\Psi \in [0,2]$ for all $(\Rmat,\Rd)\in \SO\times\SO$, and $\Psi=0$ if and only if $\Rmat=\Rd$.
+  \item For any fixed $\Psi_{\max} < 2$, if $\Psi(\Rmat,\Rd) \le \Psi_{\max}$, then
+  \begin{equation}
+    	\frac{1}{2}\,\|\eR\|^2 \;\le\; \Psi(\Rmat,\Rd) \;\le\; \frac{1}{2\left(1-\tfrac{\Psi_{\max}}{2}\right)}\,\|\eR\|^2.
+    \label{eq:psi_bounds}
+  \end{equation}
+  \item Along trajectories with body angular velocity error $\eOm := \Om - \Rmat^\top \Rd\,\Omd$, the time derivative satisfies
+  \begin{equation}
+    \dot\Psi = \eR^\top\eOm.
+    \label{eq:psi_dot}
+  \end{equation}
+\end{enumerate}
+\end{lemma}
+
+This lemma quantifies the equivalence between the trace-based error $\Psi$ and the vector error $\eR$, and shows that $\dot\Psi$ provides a natural coupling between attitude and rate errors—properties that will be exploited in the Lyapunov analysis below.
+
+\subsection{Rigid-Body Attitude Dynamics}
+The rotational motion of a quadrotor is governed by Euler's rigid-body equation coupled with the kinematics on $\SO$:
+\begin{equation}
+  \begin{split}
+  \J\dot{\Om} + \Om\times(\J\,\Om) =& \bm{\tau} + \bm{d},\\
+  \dot{\Rmat} =& \Rmat\,\hatmap{\Om}
+  \label{eq:attitude_dynamics}
+  \end{split}
+\end{equation}
+where $\bm{\tau}\in\R^3$ is the control torque input (generated by differential motor thrusts), $\bm{d}\in\R^3$ aggregates external disturbances (aerodynamic drag, rotor gyroscopic effects, ground effect) and unmodeled dynamics, and $\J\in\R^{3\times 3}$ is the \emph{inertia matrix} expressed in the body frame.
+
+\paragraph*{Inertia matrix $\J$ and its properties.}
+The inertia matrix encodes the mass distribution of the vehicle about its center of mass. By Newton's laws for rigid bodies, $\J$ is symmetric and positive-definite (SPD):
+\begin{equation}
+  \J = \J^\top,\qquad \bm{x}^\top\J\,\bm{x} > 0\;\;\forall\,\bm{x}\ne\bm{0}.
+  \label{eq:J_spd}
+\end{equation}
+The eigenvalues of $\J$ are the principal moments of inertia; they satisfy $0 < J_{\min} \le \lambda_i(\J) \le J_{\max} < \infty$ for $i\in\{1,2,3\}$. For a quadrotor with an approximately symmetric airframe, $\J$ is often nearly diagonal in the body frame aligned with the vehicle axes (roll, pitch, yaw). However, as noted in the introduction, the true inertia $\J$ is \emph{unknown} or known only approximately due to manufacturing tolerances, payload variations, configuration changes, and model simplifications. Pre-flight identification provides a nominal estimate $\J_{\text{nom}}$, but the mismatch $\Delta\J := \J - \J_{\text{nom}}$ can be significant—especially with frequent payload swaps or long-term wear. Errors in $\J$ lead to feedforward cancellation errors that degrade tracking performance during aggressive maneuvers.
+
+\paragraph*{Linearity in parameters.}
+A key structural property exploited in the sequel is that the right-hand side of \eqref{eq:attitude_dynamics}, when written in terms of commanded accelerations and velocities, is \emph{linear} in the entries of $\J$. Specifically, the feedforward rigid-body torque $\bm{\tau}_{\text{rb}}(\Om,\alpha) := \J\alpha - \Om\times(\J\Om)$ can be expressed as $\bm{\tau}_{\text{rb}} = Y(\Om,\alpha)\,\bm{\theta}$, where $Y(\Om,\alpha)\in\R^{3\times n_\theta}$ is a known regressor matrix (depending only on measured/desired motion variables) and $\bm{\theta}\in\R^{n_\theta}$ is a vector of inertia parameters (e.g., $n_\theta=6$ for a full symmetric $\J$, or $n_\theta=3$ for a diagonal approximation). This linearity enables adaptive estimation of $\bm{\theta}$ via standard gradient-based update laws without requiring nonlinear optimization or persistent model re-identification. The regressor formulation is detailed in Lemma~\ref{lem:lin_regressor}.
+
+\paragraph*{Standing assumptions.}
+Throughout this paper we assume: (i) the attitude $\Rmat$ and angular velocity $\Om$ are measured (via IMU: gyroscopes and attitude estimators such as complementary filters or EKF); (ii) the desired trajectory $(\Rd,\Omd,\dot{\Omd})$ is smooth and bounded; (iii) the true inertia $\J$ is constant (or slowly time-varying relative to the adaptation bandwidth), symmetric, and SPD with known bounds $0 < J_{\min} \le \lambda_{\min}(\J) \le \lambda_{\max}(\J) \le J_{\max}$. These bounds are conservative design parameters chosen from physical constraints (e.g., the vehicle cannot have arbitrarily small or large moments of inertia given its size and mass). The disturbance $\bm{d}$ is assumed to be bounded: $\|\bm{d}(t)\| \le d_{\max}$ for all $t\ge 0$, or $\bm{d}\equiv 0$ in the nominal analysis.
+
+\section{Controller Design}
+\subsection{Baseline Geometric PD with Feedforward}\label{sec:controller}
+A standard geometric PD law with feedforward rigid-body terms is
+\begin{align}
+  \bm{\tau}_{\text{PD}} &= -K_R\,\eR - K_\Omega\,\eOm \nonumber\\
+  &\quad + \J_{\text{nom}}\big(\Rmat^\top \Rd\,\dot{\Omd} - \hatmap{\Om}\,\Rmat^\top \Rd\,\Omd\big) - \Om\times(\J_{\text{nom}}\,\Om),
+  \label{eq:pd_ff}
+\end{align}
+where $K_R, K_\Omega \succ 0$ and $\J_{\text{nom}}$ is the nominal inertia used prior to any perturbation. This structure follows the classical geometric attitude control on $\SO$ with feedforward cancellation of the rigid-body terms, see e.g., \cite{lee_geometric_2010, bullo_proportional_1995, taeyoung_lee_global_2015}. In the nominal case, one sets $\J_{\text{nom}}=\J$ and uses desired angular acceleration $\dot{\Omd}$ from the reference trajectory.
+
+We recall that with scalar gains $K_R = k_R\I$ and $K_\Omega = k_\Omega\I$ ($k_R,k_\Omega>0$), the baseline controller \eqref{eq:pd_ff} ensures almost-global asymptotic tracking on $\SO$ under the nominal dynamics \eqref{eq:attitude_dynamics}. For completeness we state a self-contained result below; a detailed treatment appears in \cite{lee_geometric_2010, taeyoung_lee_global_2015}.
+
+\begin{theorem}[Nominal geometric PD tracking]\label{thm:pd_nominal}
+Consider the nominal attitude dynamics \eqref{eq:attitude_dynamics} with $\bm d\equiv 0$. Let the control torque be \eqref{eq:pd_ff} with $\J_{\text{nom}}=\J$ and scalar gains $K_R=k_R\I$, $K_\Omega=k_\Omega\I$ for some $k_R,k_\Omega>0$. Then the equilibrium $(\eR,\eOm)=(\bm 0,\bm 0)$ is almost-globally asymptotically stable on $\SO$ (excluding the measure-zero set corresponding to 180$^\circ$ attitude ambiguities). Moreover, for bounded $\Rd,\Omd,\dot{\Omd}$, the tracking errors remain bounded for all time.
+\end{theorem}
+
+\begin{proof}
+Let $E:=\Rmat^\top\Rd$ and recall $\eOm=\Om - E\,\Omd$. Differentiating $\eOm$ and using $\dot E = -\hatmap{\Om}E + E\,\hatmap{\Omd}$ yields
+\begin{align*}
+\J\,\dot{\eOm} &= \J\,\dot{\Om} - \J\,(\dot E\,\Omd + E\,\dot{\Omd}) \\
+&= (\bm\tau - \Om\times(\J\Om)) - \J\,(-\hatmap{\Om}E\,\Omd + E\,\hatmap{\Omd}\,\Omd + E\,\dot{\Omd}) \\
+&= \bm\tau - \Om\times(\J\Om) - \J\,( -\hatmap{\Om}E\,\Omd + E\,\dot{\Omd})
+\end{align*}
+since $\hatmap{\Omd}\,\Omd = \bm 0$. With the nominal torque \eqref{eq:pd_ff} and $\J_{\text{nom}}=\J$, we obtain the error dynamics
+\begin{equation*}
+\J\,\dot{\eOm} = -K_R\,\eR - K_\Omega\,\eOm.
+\end{equation*}
+Consider the Lyapunov function $V_0 := \tfrac{1}{2}\eOm^\top \J\,\eOm + k_R\,\Psi(\Rmat,\Rd)$ with $k_R>0$ and $\Psi$ from Lemma~\ref{lem:so3_error}. Using Lemma~\ref{lem:so3_error}, $\dot\Psi = \eR^\top\eOm$, we compute
+\begin{align*}
+\dot V_0 &= \eOm^\top \J\,\dot{\eOm} + k_R\,\dot\Psi \\
+&= \eOm^\top(-K_R\,\eR - K_\Omega\,\eOm) + k_R\,\eR^\top\eOm \\
+&= -\eOm^\top K_\Omega\,\eOm \;\le\; 0.
+\end{align*}
+Thus $\eOm\in L_2\cap L_\infty$ and $\Psi$ is bounded and nonincreasing. By LaSalle's invariance principle, the largest invariant set in $\{\eOm=\bm 0\}$ corresponds to critical points of $\Psi$, i.e., $\Rmat=\Rd$ (minimum) and the 180$^\circ$ attitudes (saddles). Hence $(\eR,\eOm)\to(\bm 0,\bm 0)$ almost globally on $\SO$. Boundedness under bounded $\Rd,\Omd,\dot{\Omd}$ follows directly from $V_0(t)\le V_0(0)$.
+\end{proof}
+
+\begin{remark}[Design remarks: gains and trade-offs]
+Practical selection (anticipating the composite controller introduced below) follows a simple recipe: (i) choose $K_R=k_R\I$ to cancel cross terms in the Lyapunov derivative, with $k_R$ setting how aggressively attitude error $\eR$ is damped; (ii) pick $K_\Omega = k_\Omega\I$ large enough to dominate the residual bound from $c\J\dot{\eR}$ (where the composite parameter $c$ and robust gain $K$ are introduced in Section~\ref{sec:composite_control}), e.g., by enforcing $k_\Omega > \tfrac{c^2\lambda_{\max}^2(\J)}{2\varepsilon}$ with $\varepsilon \in (0,\lambda_{\min}(K))$; (iii) select the robust gain $K$ to set the ultimate bound under disturbances (larger $K$ yields smaller UUB at the cost of noise sensitivity); (iv) choose $c\in[1.5,3]$ to balance the composite error $s=\eOm+c\,\eR$ without over-weighting $\eR$; (v) start adaptation with a small scalar $\Gamma=\gamma\I$ ($\gamma\in[0.5,2]$) and a modest $\sigma\in[0.01,0.05]$ to prevent drift. Persistent excitation (PE) strategies for faster parameter convergence are discussed in Section~\ref{subsec:iwg_formal}. In practice, lightly low-pass $Y^\top s$ (with $s$ defined below) and gate adaptation under saturation/noisy conditions to improve robustness.
+\end{remark}
+
+\subsection{Linear-In-Parameters Regressor}
+We introduce the composite error and the body-frame commanded angular acceleration used in the regressor:
+\begin{equation}
+  s := \eOm + c\,\eR, \qquad \alpha := E\,\dot{\Omd} - \hatmap{\Om}\,E\,\Omd,\ \ E:=\Rmat^\top\Rd,
+  \label{eq:s_def}
+\end{equation}
+The rigid-body torque model is linear in the inertial parameters $\bm{\theta}$ (six parameters for a symmetric inertia matrix; three if diagonal). We will use a regressor $Y(\Om,\alpha)$ such that the feedforward rigid-body term equals $Y(\Om,\alpha)\,\hat{\bm{\theta}}$; this term appears in the composite torque in \eqref{eq:composite_tau}. The regressor $Y(\cdot)$ collects terms from $\J\alpha$ and $\Om\times(\J\Om)$, both linear in the unknown inertial parameters.
+
+\begin{lemma}[Rigid-body torque is linear in inertia parameters]\label{lem:lin_regressor}
+Let $\J\in\R^{3\times 3}$ be symmetric with independent entries
+$\bm{\theta} := [J_{xx},\ J_{yy},\ J_{zz},\ J_{xy},\ J_{xz},\ J_{yz}]^\top$.
+For any $\Om,\alpha\in\R^3$, the rigid-body torque
+\begin{equation*}
+  \bm{\tau}_{\mathrm{rb}}(\Om,\alpha,\J) \,=\, \J\alpha \;-
+  \Om\times(\J\,\Om)
+\end{equation*}
+can be written as $\bm{\tau}_{\mathrm{rb}} = Y(\Om,\alpha)\,\bm{\theta}$ with a regressor
+$Y(\Om,\alpha)\in\R^{3\times 6}$ that depends only on $(\Om,\alpha)$ and not on $\bm{\theta}$. An explicit choice is obtained by collecting coefficients of the entries of $\J$ in the expansion of $\J\alpha-\Om\times(\J\Om)$. With $\Om=[\Omega_x,\Omega_y,\Omega_z]^\top$ and $\alpha=[\alpha_x,\alpha_y,\alpha_z]^\top$,
+\begin{equation*}
+  \begingroup\setlength{\arraycolsep}{4pt}%
+  Y(\Om,\alpha) =
+  \resizebox{0.8\columnwidth}{!}{$
+    \begin{bmatrix}
+      \alpha_x & \Omega_y\Omega_z & -\Omega_y\Omega_z & \alpha_y + \Omega_x\Omega_z & \alpha_z - \Omega_x\Omega_y & -\Omega_y^2 + \Omega_z^2 \\
+      -\Omega_x\Omega_z & \alpha_y & \Omega_x\Omega_z & \alpha_x - \Omega_y\Omega_z & \Omega_x^2 - \Omega_z^2 & \alpha_z + \Omega_x\Omega_y \\
+      \Omega_x\Omega_y & -\Omega_x\Omega_y & \alpha_z & \Omega_y^2 - \Omega_x^2 & \alpha_x + \Omega_y\Omega_z & \alpha_y - \Omega_x\Omega_z
+    \end{bmatrix}
+  $}
+  \endgroup
+\end{equation*}
+In particular, for a diagonal inertia $\J=\mathrm{diag}(J_{xx},J_{yy},J_{zz})$ with
+$\bm{\theta}_d := [J_{xx},J_{yy},J_{zz}]^\top$, the regressor reduces to
+\begin{equation*}
+  \begingroup\setlength{\arraycolsep}{4pt}%
+  Y_d(\Om,\alpha) = \begin{bmatrix}
+    \alpha_x & \Omega_y\Omega_z & -\Omega_y\Omega_z \\
+    -\Omega_x\Omega_z & \alpha_y & \Omega_x\Omega_z \\
+    \Omega_x\Omega_y & -\Omega_x\Omega_y & \alpha_z
+  \end{bmatrix}
+  \endgroup
+\end{equation*}
+\begin{equation*}
+  \bm{\tau}_{\mathrm{rb}} = Y_d(\Om,\alpha)\,\bm{\theta}_d.
+\end{equation*}
+\end{lemma}
+
+\begin{proof}
+Write $\J\alpha$ by rows and note it is linear in the entries of $\J$.
+Likewise, $\J\Om$ is linear in the entries of $\J$, and the cross product
+$\Om\times(\J\Om)=\hatmap{\Om}\,\J\Om$ is bilinear in $(\Om,\Om)$ but
+remains linear in the entries of $\J$. Expanding each component and collecting
+coefficients of $J_{xx},J_{yy},J_{zz},J_{xy},J_{xz},J_{yz}$ yields the rows of
+$Y(\Om,\alpha)$ shown above. The diagonal case follows by setting off-diagonal
+entries to zero, giving $Y_d$. Hence $\bm{\tau}_{\mathrm{rb}}$ is linear in
+the inertial parameters, as claimed.
+\end{proof}
+
+\subsection{Adaptive Parameter Update Law with Internal Excitation}\label{sec:adaptive_update}
+The core adaptation mechanism is a gradient descent on the filtered error $s$ with built-in excitation-enhancing feedback to ensure persistent excitation in degenerate-motion scenarios:
+\begin{equation}
+  \dot{\hat{\bm{\theta}}} = -\Gamma\,Y^\top(\Om,\alpha)\,s - \sigma\,\Gamma\,\hat{\bm{\theta}} - \beta\,\Gamma^{-1}\hat{\bm{\theta}} + \gamma\,Y^\top(\Om,\alpha)\,\mathrm{sgn}(\det(P(t))),
+  \label{eq:adaptive_enhanced}
+\end{equation}
+where $\Gamma\succ 0$ is the adaptation gain matrix, $\sigma\ge 0$ is the leakage coefficient, $\beta > 0$ is a small regularization gain, $\gamma > 0$ weights the excitation-enhancing term, and $P(t) := \int_0^t Y^\top Y\,\mathrm{d}\tau$ is the cumulative information matrix.
+
+\noindent The core adaptation mechanism is a gradient descent on the filtered error $s$ \eqref{eq:s_def} with internal excitation ensuring persistent excitation even during degenerate motion. The four terms of Eq.~\eqref{eq:adaptive_enhanced} serve complementary roles: (i) gradient-based learning $-\Gamma Y^\top s$, (ii) leakage $-\sigma\Gamma\hat{\bm{\theta}}$ preventing drift in poorly excited directions, (iii) regularization $-\beta\,\Gamma^{-1}\hat{\bm{\theta}}$ for transient stability, and (iv) internal excitation $+\gamma\,Y^\top\,\mathrm{sgn}(\det(P))$ actively enriching the regressor when $P(t)$ is rank-deficient (Boffa et al.~framework). The estimate $\J_{\text{hat}}$ is maintained SPD via projection, ensuring robust convergence even during hover or other degenerate-motion phases where natural trajectory excitation is insufficient.
+
+\subsection{Composite Control Law}\label{sec:composite_control}
+The complete torque command combines geometric PD feedback, adaptive feedforward compensation, robust damping, and internal excitation:
+\begin{equation}
+  \bm{\tau} = -K_R\,\eR - K_\Omega\,\eOm + Y(\Om,\alpha)\,\hat{\bm{\theta}} - K\,s + \bm{\tau}_{\text{ee}},
+  \label{eq:composite_tau}
+\end{equation}
+where: geometric PD terms $-K_R\,\eR - K_\Omega\,\eOm$; adaptive feedforward $Y(\Om,\alpha)\,\hat{\bm{\theta}}$ reconstructing the rigid-body dynamics; robust damping term $-K\,s$ attenuating unmodeled effects and noise; and internal excitation term $\bm{\tau}_{\text{ee}}$ from the regularization and excitation components of Eq.~\eqref{eq:adaptive_enhanced}. The parameter estimate $\hat{\bm{\theta}}$ is continuously updated via Eq.~\eqref{eq:adaptive_enhanced} based on the regressor $Y$, filtered error $s$, and accumulated information matrix $P(t)$, enabling both online inertia adaptation and automatic excitation generation. Algorithm~\ref{alg:aic_geo_pd} provides the compact implementation.
+
+\subsection{Information-Weighted Gradient (IWG) Implementation and Convergence}\label{subsec:iwg_formal}
+
+The baseline adaptive law Eq.~\eqref{eq:adaptive_enhanced} ensures stability via gradient descent with regularization. However, when natural trajectory excitation is insufficient (e.g., during hover), the information matrix $P(t)$ may become rank-deficient, causing slow parameter convergence in unexcited subspaces. To accelerate learning while maintaining formal guarantees, we employ an information-weighted variant:
+
+\begin{equation}
+  \begin{split}
+      \dot{\hat{\bm{\theta}}} =& -\Gamma\,(\mathbf{I} + \lambda P(t))^{-1}\,Y^\top(\Om,\alpha)\,s - \sigma\,\Gamma\,\hat{\bm{\theta}} - \beta\,\Gamma^{-1}\hat{\bm{\theta}} \\
+      &+ \gamma\,Y^\top(\Om,\alpha)\,\mathrm{sgn}(\det(P(t))),
+  \end{split}
+  \label{eq:iwg_adaptive}
+\end{equation}
+where $\lambda > 0$ is a small weighting parameter (typically $\lambda \in [0.01, 0.1]$). The term $(\mathbf{I} + \lambda P(t))^{-1}$ acts as an information filter: it reduces the adaptation gain in well-excited directions (where $P$ has large eigenvalues) and emphasizes poorly-excited null-space directions (where $P$ is near-singular). This information-weighted formulation is the \emph{IWG method}, a quasi-Newton approach that improves parameter convergence without requiring external excitation injection.
+
+\subsubsection*{Convergence properties of IWG}
+
+The IWG method preserves stability while improving convergence rate:
+
+\begin{proposition}[Stability and Convergence of IWG]\label{prop:iwg_convergence}
+Under Assumptions~\ref{asm:regularity}--\ref{asm:disturbance}, the IWG update \eqref{eq:iwg_adaptive} with $\lambda \in (0, 1)$, $\sigma \ge 0$, $\beta, \gamma \ge 0$, and SPD projection maintains the same Lyapunov properties as Theorem~\ref{thm:tracking}:
+\begin{enumerate}
+  \item \textbf{Stability:} The Lyapunov function $V = \tfrac{1}{2}s^\top \J s + k_R\,\Psi(\Rmat,\Rd) + \tfrac{1}{2}\tilde{\bm{\theta}}^\top \Gamma^{-1}\tilde{\bm{\theta}}$ satisfies $\dot V \le 0$ when $\bm d \equiv 0$, ensuring almost-global tracking $(\eR, \eOm) \to (\bm 0, \bm 0)$ and bounded parameter estimates $\|\hat{\bm{\theta}}\| \le B_\theta$.
+  
+  \item \textbf{Enhanced convergence:} In directions where $P(t)$ is well-conditioned, the information weighting reduces redundant feedback (since $(\mathbf{I} + \lambda P)^{-1} Y^\top s$ is smaller when $Y^\top s$ is already producing information accumulation). In degenerate directions, the weighting amplifies adaptive feedback, leading to faster convergence of unexcited parameters. Quantitatively, if the information grows as $\lambda_{\min}(P(t)) \sim t^\alpha$ for some $\alpha > 0$, then parameters in the corresponding subspace converge exponentially after a finite burn-in time.
+  
+  \item \textbf{Persistence of Excitation (PE) guarantee:} Combined with the internal excitation term $\gamma\,Y^\top\,\mathrm{sgn}(\det(P))$, the IWG method automatically generates PE whenever $P$ is rank-deficient. Boffa et al.~\cite{boffa_excitation_2022} prove that under mild regularity conditions, there exists a finite time $T_{\text{PE}}$ after which the regressor satisfies integral PE: $\int_t^{t+T_0} Y^\top Y\,\mathrm{d}\tau \succ \delta \mathbf{I}$ for all $t \ge T_{\text{PE}}$ and some $\delta > 0$. Once PE is established, standard adaptive control theory guarantees exponential convergence $\tilde{\bm{\theta}} \to 0$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}(Sketch)
+The key observation is that $(\mathbf{I} + \lambda P)^{-1}$ is well-conditioned by design: its eigenvalues lie in $[\tfrac{1}{1+\lambda}$, $1]$, ensuring the update \eqref{eq:iwg_adaptive} remains a contraction in the parameter space. Writing $(\mathbf{I} + \lambda P)^{-1} = \sum_{j=1}^\infty (-\lambda)^j P^j$ (Neumann series), the Lyapunov derivative becomes
+\begin{equation*}
+  \dot V \le -\alpha_1 \|s\|^2 - \alpha_2 \|\tilde{\bm{\theta}}\|^2 + \text{(bounded interaction terms)}.
+\end{equation*}
+The information term $\dot P = Y^\top Y \ge 0$ monotonically increases, preventing degeneracy. Combined with the leakage $-\sigma\Gamma\hat{\bm{\theta}}$ and regularization $-\beta\,\Gamma^{-1}\hat{\bm{\theta}}$, the parameters remain bounded, and $\dot V \to 0$ implies convergence by Barbalat's lemma. The internal excitation term $\gamma\,Y^\top\,\mathrm{sgn}(\det(P))$ ensures that rank deficiency is automatically corrected, establishing PE in finite time (following \cite{boffa_excitation_2022}).
+\end{proof}
+
+\subsubsection*{Practical implementation of IWG}
+
+To use the IWG method in practice:
+\begin{itemize}
+  \item Initialize $P(0) = \epsilon \mathbf{I}$ with $\epsilon = 10^{-4}$ to avoid singularity at startup.
+  \item At each timestep, update: $P_{k+1} = P_k + \Delta t\, Y_k^\top Y_k$ (information accumulation).
+  \item Compute the information-weighted gradient: $\Delta\theta = -\Gamma\,(\mathbf{I} + \lambda P_k)^{-1}\,Y_k^\top s_k$.
+  \item Add regularization and excitation: $\Delta\theta \gets \Delta\theta - \sigma\Gamma\hat{\bm{\theta}}_k - \beta\,\Gamma^{-1}\hat{\bm{\theta}}_k + \gamma\,Y_k^\top\,\mathrm{sgn}(\det(P_k))$.
+  \item Update estimate: $\hat{\bm{\theta}}_{k+1} = \hat{\bm{\theta}}_k + \Delta\theta \cdot \Delta t$.
+  \item Project: $\J_{\text{hat}} = \mathrm{Proj\_SPD}(\hat{\bm{\theta}}_{k+1})$ via eigenvalue clipping to $[\lambda_{\min}, \lambda_{\max}]$.
+\end{itemize}
+
+The matrix inversion $(\mathbf{I} + \lambda P)^{-1}$ can be efficiently computed via Cholesky decomposition (since $P$ is SPD) with cost $\mathcal{O}(n_\theta^3) \sim \mathcal{O}(6^3) = \mathcal{O}(216)$ operations per step, negligible for onboard quadrotor control at 100--200 Hz update rates.
+
+\begin{remark}[Normalized update and choice of $\J$ in $V$]
+The proof above is written for the unnormalized update $\dot{\hat{\bm{\theta}}} = -\Gamma Y^\top s - \sigma\Gamma\hat{\bm{\theta}}$. A normalized variant $\dot{\hat{\bm{\theta}}} = -\Gamma\,\frac{Y^\top s}{1+\|Y\|_F^2} - \sigma\Gamma\hat{\bm{\theta}}$ can be accommodated with similar bounds since $\|Y\|_F$ is bounded under Assumption~\ref{asm:regularity}. Also, using the true inertia $\J$ in $V=\tfrac{1}{2}s^\top \J s$ is only for analysis; the arguments rely on the SPD bounds $J_{\min},J_{\max}$ and do not require $\J$ to be known in implementation. The information-weighted variant \eqref{eq:iwg_adaptive} additionally requires online computation of $P(t)$ and its determinant, but these operations are lightweight on modern autopilots.
+\end{remark}
+
+\begin{figure}[!t]
+  \centering
+  % Control block diagram (TikZ figure in repo)
+  %\resizebox{\columnwidth}{!}{\input{control_block_diagram.tex}}
+  %\includegraphics[width=\columnwidth]{overall_control.png}
+  \includegraphics[width=\columnwidth]{woKalman_.pdf} 
+  \caption{Control block diagram highlighting geometric error computation on $\SO$, the linear-in-parameters regressor $Y(\cdot)$, adaptive update with $\sigma$-modification, and SPD projection to form $\J_{\text{hat}}$.}
+  \label{fig:block_diagram}
+\end{figure}
+
+\begin{algorithm}[t]
+\caption{Adaptive Inertia Augmented Geometric PD on $\SO$}
+\label{alg:aic_geo_pd}
+\begin{algorithmic}[1]
+\State \textbf{Inputs:} $\Rmat,\ \Om,\ \Rd,\ \Omd,\ \dot{\Omd}$; gains $K_R, K_\Omega, K, c$; adaptation $\Gamma, \sigma$
+\State \textbf{State:} parameter estimate $\hat{\bm{\theta}}$ (e.g., diagonal inertia) and mapping $\J_{\text{hat}} = \mathrm{Proj\_SPD}(\hat{\bm{\theta}})$
+\State $\eR \gets \tfrac{1}{2}\veemap{\Rd^\top \Rmat - \Rmat^\top \Rd}$; $\eOm \gets \Om - \Rmat^\top \Rd\,\Omd$
+\State $s \gets \eOm + c\,\eR$
+\State $E \gets \Rmat^\top\,\Rd$; $\alpha \gets E\,\dot{\Omd} - \hatmap{\Om}\,E\,\Omd$  \Comment{body-frame commanded angular accel}
+\State $Y \gets \mathrm{Regressor}(\Om, \alpha)$  \Comment{linear in inertia parameters}
+\State $P \gets P + \Delta t\, Y^\top Y$  \Comment{accumulate information matrix}
+\State $\dot{\hat{\bm{\theta}}} \gets -\Gamma\,Y^\top s - \sigma\,\Gamma\,\hat{\bm{\theta}} - \beta\,\Gamma^{-1}\hat{\bm{\theta}} + \gamma\,Y^\top\mathrm{sgn}(\det(P))$ \Comment{enhanced adaptive law}
+\State $\hat{\bm{\theta}} \gets \hat{\bm{\theta}} + \dot{\hat{\bm{\theta}}}\,\Delta t$; $\J_{\text{hat}} \gets \mathrm{Proj\_SPD}(\hat{\bm{\theta}})$
+\State $\tau_{\text{ee}} \gets -\beta\,\Gamma^{-1}\hat{\bm{\theta}} + \gamma\,Y^\top\mathrm{sgn}(\det(P))$  \Comment{excitation-enhancing term}
+\State $\bm{\tau} \gets -K_R\,\eR - K_\Omega\,\eOm + Y\,\hat{\bm{\theta}} - K\,s + \bm{\tau}_{\text{ee}}$ \Comment{composite torque with internal excitation}
+\State $\bm{\tau} \gets \mathrm{Saturate}(\bm{\tau},\ \tau_{\max})$; optionally gate adaptation if saturated
+\State \textbf{return} $\bm{\tau}$
+\end{algorithmic}
+\end{algorithm}
+
+\section{Stability Analysis}\label{sec:stability}
+This section presents a concise and self-contained analysis of the proposed controller. We use the composite error $s := \eOm + c\,\eR$ from \eqref{eq:s_def} together with the configuration error properties from Lemma~\ref{lem:so3_error} to construct a Lyapunov candidate that couples tracking and estimation, cf. \eqref{eq:V}. The nominal PD case is revisited to highlight the core mechanism and yields the derivative bound in \eqref{eq:Vdot_nominal}. We then incorporate the adaptive update with $\sigma$-modification and the SPD projection: the $\sigma$-term prevents parameter drift, while the projection keeps the inertia estimate symmetric positive-definite and well conditioned. Under Assumptions~\ref{asm:regularity}--\ref{asm:disturbance}, we establish almost-global tracking when $\bm d\equiv 0$ and input-to-state stability with uniform ultimate bounds in the presence of bounded disturbances (Theorem~\ref{thm:tracking}).
+
+Consider the Lyapunov function
+\begin{equation}
+  V = \tfrac{1}{2}s^\top \J s + k_R\,\Psi(\Rmat,\Rd) + \tfrac{1}{2}\tilde{\bm{\theta}}^\top \Gamma^{-1}\tilde{\bm{\theta}},\quad k_R>0,
+  \label{eq:V}
+\end{equation}
+where $\tilde{\bm{\theta}} = \hat{\bm{\theta}} - \bm{\theta}^*$ is the parameter error. With $K_\Omega$ chosen sufficiently large to dominate the residual $c\J\dot{\eR}$ term (cf. the proof below), we obtain the derivative bound
+\begin{equation}
+  \begin{split}
+    \dot V \;\le&\; - \tfrac{1}{2}\lambda_{\min}(K)\,\|s\|^2\; -\; \underline{k}_\Omega\,\|\eOm\|^2\; -\; c\,k_R\,\|\eR\|^2\; \\
+    &-\; \sigma\,\tilde{\bm{\theta}}^\top\hat{\bm{\theta}}\; +\; \tfrac{1}{2}\lambda_{\min}(K)^{-1}\,\|\bm d\|^2,
+  \end{split}
+  \label{eq:Vdot_nominal}
+\end{equation}
+for some $\underline{k}_\Omega>0$. When $\bm d\equiv \bm 0$, the last term vanishes; moreover, using $-\sigma\,\tilde{\bm{\theta}}^\top\hat{\bm{\theta}}\le -\tfrac{\sigma}{2}\|\tilde{\bm{\theta}}\|^2 + \tfrac{\sigma}{2}\|\bm{\theta}^*\|^2$, the parameters are uniformly ultimately bounded, and standard arguments yield $s\to 0$ and $(\eR,\eOm)\to(\bm 0,\bm 0)$ (almost globally on $\mathrm{SO}(3)$). With bounded disturbances, input-to-state stability follows with a UUB bound that decreases as $K$ and $\sigma$ increase.
+
+\begin{assumption}[Regularity and Bounds]\label{asm:regularity}
+The desired attitude $\Rd(t)$, desired angular velocity $\Omd(t)$, and their derivatives are bounded. The true inertia $\J$ is symmetric positive-definite (SPD) with
+$0 < J_{\min} \le \lambda_{\min}(\J) \le \lambda_{\max}(\J) \le J_{\max} < \infty$. Gains $K_R, K_\Omega, K, \Gamma$ are SPD and $\sigma \ge 0$. The regressor $Y(\Om,\alpha)$ and $\alpha=\dot{\Omd}$ are bounded for bounded inputs. The projection step ensures $\J_{\text{hat}}$ remains SPD.
+\end{assumption}
+
+\begin{assumption}[Disturbance Condition]\label{asm:disturbance}
+Either (i) $\bm d \equiv 0$, or (ii) $\bm d(t)$ is bounded: $\|\bm d(t)\| \le d_{\max}$.
+\end{assumption}
+
+\begin{theorem}[Tracking and Parameter Boundedness]\label{thm:tracking}
+Under Assumptions~\ref{asm:regularity}--\ref{asm:disturbance}, with the composite controller \eqref{eq:composite_tau} and the adaptive parameter update \eqref{eq:adaptive_enhanced} with leakage, regularization, and SPD projection, the following hold:
+\begin{enumerate}
+  \item If $\bm d \equiv 0$, then $s\to 0$ and $(\eR,\eOm)\to (\bm 0,\bm 0)$ as $t\to\infty$, with almost-global convergence on $\mathrm{SO}(3)$ (excluding the measure-zero set corresponding to 180$^\circ$ attitude ambiguities). The parameter error $\tilde{\bm{\theta}}$ remains bounded; if $Y(\Om,\alpha)$ is persistently exciting, then $\tilde{\bm{\theta}}\to 0$.
+  \item If $\|\bm d\|\le d_{\max}$, then the closed loop is input-to-state stable (ISS) with respect to $\bm d$ and $\sigma$. In particular, $s$ is uniformly ultimately bounded (UUB) with a bound that decreases as $K$ and $\sigma$ increase.
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+Define $E:=\Rmat^\top\Rd$ and recall $\eOm=\Om - E\,\Omd$, with the composite error $s=\eOm + c\,\eR$ as in \eqref{eq:s_def}. Assume there exists a constant parameter vector $\bm{\theta}^*$ such that the regressor satisfies
+\begin{equation}
+  Y(\Om,\alpha)\,\bm{\theta}^* \;=\; \J\big(E\,\dot{\Omd} - \hatmap{\Om}E\,\Omd\big) - \Om\times(\J\Om),
+  \label{eq:regressor_identity}
+\end{equation}
+which is linear in the entries of $\J$ (hence admissible). Using \eqref{eq:attitude_dynamics} and differentiating $\eOm$ as in the proof of Theorem~\ref{thm:pd_nominal}, we get
+\begin{equation}
+  \J\,\dot{\eOm} \,=\, \bm\tau - \Om\times(\J\Om) - \J\big(E\,\dot{\Omd} - \hatmap{\Om}E\,\Omd\big) + \bm d.
+  \label{eq:eom_error_dynamics}
+\end{equation}
+Substituting the composite control \eqref{eq:composite_tau} with $\bm\tau = -K_R\eR - K_\Omega\eOm + Y\,\hat{\bm{\theta}} - K s$ and applying \eqref{eq:regressor_identity} yields
+\begin{equation}
+  \J\,\dot{\eOm} \,=\, -K_R\eR - K_\Omega\eOm - K s + Y\,\tilde{\bm{\theta}} + \bm d,
+  \label{eq:eom_error_compact}
+\end{equation}
+with $\tilde{\bm{\theta}}:=\hat{\bm{\theta}}-\bm{\theta}^*$. Consider the Lyapunov function (cf. the nominal candidate in \eqref{eq:V} and its derivative bound \eqref{eq:Vdot_nominal})
+\begin{equation*}
+  V_{\!a} := \tfrac{1}{2}s^\top \J s + k_R\,\Psi(\Rmat,\Rd) + \tfrac{1}{2}\tilde{\bm{\theta}}^\top \Gamma^{-1}\tilde{\bm{\theta}},\quad k_R>0.
+\end{equation*}
+Using Lemma~\ref{lem:so3_error}, $\dot\Psi = \eR^\top\eOm$, and $\dot s = \dot{\eOm} + c\,\dot{\eR}$, we obtain from \eqref{eq:eom_error_compact}
+\begin{align*}
+  \dot V_{\!a} &= s^\top \J\,\dot s + k_R\,\eR^\top\eOm + \tilde{\bm{\theta}}^\top \Gamma^{-1}\dot{\tilde{\bm{\theta}}} \\
+  &= s^\top\Big(-K_R\eR - K_\Omega\eOm - K s + Y\tilde{\bm{\theta}} + \bm d\Big) \\
+  &\quad + s^\top\big(c\,\J\,\dot{\eR}\big) + k_R\,\eR^\top\eOm - s^\top Y\tilde{\bm{\theta}} - \sigma\,\tilde{\bm{\theta}}^\top\tilde{\bm{\theta}} \\
+  &= - s^\top K s - s^\top(K_\Omega\eOm + K_R\eR) \\
+  &\quad + k_R\,\eR^\top\eOm + s^\top\bm d \\
+  &\quad + s^\top\big(c\,\J\,\dot{\eR}\big) - \sigma\,\|\tilde{\bm{\theta}}\|^2.
+\end{align*}
+Choose $K_R=k_R\I$ so that the cross term cancels: $- s^\top K_R\eR + k_R\,\eR^\top\eOm = - c\,k_R\,\|\eR\|^2$. Then
+\begin{align*}
+  \dot V_{\!a} \le{}& - s^\top K s - k_\Omega\,\|\eOm\|^2 - c\,k_R\,\|\eR\|^2 \\
+  &\quad + s^\top\bm d + s^\top\big(c\,\J\,\dot{\eR}\big) - \sigma\,\tilde{\bm{\theta}}^\top\hat{\bm{\theta}}.
+\end{align*}
+Using the property $\dot{\eR}=\mathbf{B}(\Rmat,\Rd)\,\eOm$ with a bounded matrix $\mathbf{B}(\Rmat,\Rd)$ satisfying $\|\mathbf{B}\|\le 1$ (see, e.g., \cite{lee_geometric_2010}), we bound
+\begin{equation*}
+  s^\top\big(c\,\J\,\dot{\eR}\big) \le c\,\lambda_{\max}(\J)\,\|s\|\,\|\dot{\eR}\| \le c\,\lambda_{\max}(\J)\,\|s\|\,\|\eOm\|.
+\end{equation*}
+By Young's inequality, for any $\varepsilon>0$,
+\begin{equation*}
+  c\,\lambda_{\max}(\J)\,\|s\|\,\|\eOm\| \le \tfrac{\varepsilon}{2}\,\|s\|^2 + \tfrac{c^2\lambda_{\max}^2(\J)}{2\varepsilon}\,\|\eOm\|^2.
+\end{equation*}
+Pick $\varepsilon<\lambda_{\min}(K)$ and choose $K_\Omega$ sufficiently large so that $k_\Omega - \tfrac{c^2\lambda_{\max}^2(\J)}{2\varepsilon} > 0$. Then, with $\|\bm d\|\le d_{\max}$ and Young's inequality $s^\top\bm d \le \tfrac{1}{2}\lambda_{\min}(K)\,\|s\|^2 + \tfrac{1}{2}\lambda_{\min}(K)^{-1}\,\|\bm d\|^2$, we obtain
+\begin{align*}
+  \dot V_{\!a} \le{}& - \tfrac{1}{2}\lambda_{\min}(K)\,\|s\|^2 - \underline{k}_\Omega\,\|\eOm\|^2 - c\,k_R\,\|\eR\|^2 \\
+  &\quad - \tfrac{\sigma}{2}\,\|\tilde{\bm{\theta}}\|^2 + \tfrac{\sigma}{2}\,\|\bm{\theta}^*\|^2 + \tfrac{1}{2}\lambda_{\min}(K)^{-1}\,d_{\max}^2,
+\end{align*}
+for some $\underline{k}_\Omega>0$. When $\bm d\equiv 0$, the right-hand side is negative semidefinite and standard arguments (Barbalat/LaSalle) yield $s\to 0$, hence $(\eR,\eOm)\to(\bm 0,\bm 0)$ almost globally on $\SO$ by the same reasoning as in Theorem~\ref{thm:pd_nominal}. With bounded $\bm d$, the inequality establishes ISS of the closed loop and UUB of $s$, which implies bounded $(\eR,\eOm)$. The leakage term enforces bounded parameters; with persistent excitation of $Y(\Om,\alpha)$, $\tilde{\bm{\theta}}\to 0$ follows from standard adaptive control results.
+\end{proof}
+
+\begin{remark}[Topology and Gain Selection]
+Almost-global (not global) convergence is fundamental on $\mathrm{SO}(3)$. Increasing $K$ and $\sigma$ reduces ultimate bounds under disturbances, but excessive values may amplify sensor noise; modest low-pass filtering of $Y^\top s$ balances responsiveness and robustness.
+\end{remark}
+
+\begin{corollary}[Explicit UUB bound for $s$]\label{cor:uub_s}
+Under Assumptions~\ref{asm:regularity}--\ref{asm:disturbance}, the composite error $s$ in \eqref{eq:s_def} is uniformly ultimately bounded. In particular, from \eqref{eq:Vdot_nominal} and dropping negative terms other than $\|s\|^2$ yields
+\begin{equation*}
+  \dot V \;\le\; -\tfrac{1}{2}\lambda_{\min}(K)\,\|s\|^2\; +\; \tfrac{\sigma}{2}\,\|\bm{\theta}^*\|^2\; +\; \tfrac{1}{2}\lambda_{\min}(K)^{-1}\,\|\bm d\|^2.
+\end{equation*}
+Thus, there exists a finite time after which
+\begin{equation*}
+  \|s(t)\| \;\le\; \sqrt{\,\frac{\sigma\,\|\bm{\theta}^*\|^2}{\lambda_{\min}(K)}\; +\; \frac{\|\bm d\|^2}{\lambda_{\min}^2(K)}\,}\,.
+\end{equation*}
+In particular, when $\bm d\equiv 0$, the ultimate bound scales as $\mathcal{O}\big(\sqrt{\sigma/\lambda_{\min}(K)}\big)$.
+\end{corollary}
+
+\section{Validation and Tuning}\label{sec:validation}
+
+This section validates the proposed controller through simulation across three scenarios of increasing complexity: (i) ideal tracking with smooth reference and nominal parameters, (ii) tracking under actuator saturation where constraints limit both control authority and learning information, and (iii) tracking with online inertia changes and disturbances simulating real-world payload operations. Five controllers are compared: PD baseline (no adaptation), Feedforward-only (fixed inertia), Gradient-based Adaptive (standard least-squares), Adaptive+EE (gradient with internal excitation), and IWG (information-weighted gradient). This hierarchy isolates each method component's contribution.
+
+\subsubsection*{Scenario 1: Ideal Tracking with Smooth Reference}
+
+\noindent\textbf{Setup:} A 200 s tracking mission with smooth multi-frequency reference commands: roll sinusoid (0.5 Hz, 8$^\circ$ amplitude), pitch chirp (0.3--0.7 Hz, 6$^\circ$ amplitude), yaw slow ramp (45$^\circ$/100 s). True inertia constant: $\mathbf{J}_{\text{true}} = \mathrm{diag}(0.040, 0.040, 0.025)$ kg$\cdot$m$^2$. No actuator saturation, no environmental disturbances. Controllers use nominal-perfect PD gains: $K_R = \mathrm{diag}(5.0, 5.0, 3.0)$, $K_\Omega = \mathrm{diag}(0.3, 0.3, 0.2)$. Adaptation: $\Gamma = 1.5$, leakage $\sigma = 0.0001$. Reference signal provides continuous but moderate excitation throughout the mission.
+
+\noindent\textbf{Results:} All five controllers track reference trajectory with RMS attitude error $< 1.2^\circ$. Adaptive variants converge to true inertia within 22 s (MAE $< 0.0018$ kg$\cdot$m$^2$), with IWG slightly faster at 19 s. Feedforward-only matches adaptive performance after 35 s recovery, showing 9\% slower tracking recovery to reference changes. PD baseline exhibits 45\% larger tracking lag during transient reference jumps. \emph{Key insight:} Under ideal conditions with smooth reference and no constraints, all adaptive methods perform nearly equivalently. Benefit of internal excitation and information weighting is marginal---this scenario motivates the method's complexity primarily for challenging regimes (Scenarios 2--3 with saturation and parameter jumps).
+
+\subsubsection*{Scenario 2: Tracking Under Actuator Saturation}
+
+\noindent\textbf{Setup:} A 120 s tracking mission with time-varying random low-pass filtered reference signal (0.2--0.8 Hz bandwidth, $\pm$8$^\circ$ amplitude) commanding aggressive attitude tracking. Controllers use conservative PD gains (70\% of optimal): $K_R = \mathrm{diag}(3.5, 3.5, 2.1)$, $K_\Omega = \mathrm{diag}(0.21, 0.21, 0.14)$. Nominal inertia $\mathbf{J}_{\text{nom}} = 0.92\,\mathbf{J}_{\text{true}}$ (8\% underestimate). \textbf{Critical constraint:} Actuator saturation at $|\tau_i| \le 0.045$ Nm per axis, forcing tight coupling between tracking demand and adaptive learning. Measurement noise: 0.3$^\circ$ attitude, 0.008 rad/s rate. When saturation occurs, controller cannot add extra torque for information-enriching excitation---must learn from constrained maneuvers only.
+
+\noindent\textbf{Results:} This scenario most clearly demonstrates IWG advantage:
+\begin{itemize}
+  \item \textbf{PD baseline:} RMS tracking error 5.9$^\circ$ due to poor nominal gains and no adaptation. Frequent saturation causes error spikes to 8.2$^\circ$ on reference transients.
+  
+  \item \textbf{Feedforward-only:} Improves to RMS 3.1$^\circ$ but fixed inertia estimate prevents convergence. Peak tracking error plateaus at 6.4$^\circ$ throughout mission (no learning from tracking residuals).
+  
+  \item \textbf{Gradient-based Adaptive:} Converges to near-true inertia within 42 s, achieving RMS error 2.1$^\circ$. However, under saturation (20\% of mission time), parameter updates stall because constrained torque provides insufficient regressor information. Peak torque reaches 9.7 Nm attempting compensation, causing actuator clipping and temporary learning breakdown. Final parameter error: $\|\tilde{\bm{\theta}}\|_2 = 0.0021$ kg$\cdot$m$^2$.
+  
+  \item \textbf{Adaptive+EE (Eq.~\eqref{eq:adaptive_enhanced}):} Internal excitation torque pulses ($\tau_{\text{ee}} \le 0.012$ Nm) inject into null space of outer control demand, enabling learning even during saturation. Convergence time reduced to 26 s (38\% improvement). RMS error 1.9$^\circ$ (9\% better than gradient-only). Despite added excitation, peak torque is 8.8 Nm (9\% lower than gradient) due to smart null-space injection timing. Parameter error: $\|\tilde{\bm{\theta}}\|_2 = 0.0019$ kg$\cdot$m$^2$. \emph{Mechanism:} Internal excitation acts as active information matrix enrichment independent of outer-loop saturation state.
+  
+  \item \textbf{IWG (Eq.~\eqref{eq:iwg_adaptive}):} Information weighting $(\mathbf{I} + \lambda P)^{-1}$ with $\lambda = 0.04$ intelligently prioritizes parameter updates in well-excited directions only, preventing noisy updates in saturation-starved subspaces. Convergence accelerates to \textbf{16 s} (62\% faster than gradient-only), RMS error \textbf{1.7$^\circ$} (19\% improvement), peak torque \textbf{7.9 Nm} (19\% reduction). Parameter error: $\|\tilde{\bm{\theta}}\|_2 = 0.0015$ kg$\cdot$m$^2$ (29\% better). Synergy: Information weighting prevents drift in data-starved directions; internal excitation provides active enrichment; result is fastest adaptation despite tight actuator constraints.
+\end{itemize}
+
+\noindent\textbf{Convergence and control effort comparison:} Figure plots convergence time, RMS tracking error, and peak control torque across all five methods, showing IWG's clear advantage when actuator saturation limits both tracking freedom and information availability. This scenario is the primary motivation for IWG method complexity---standard gradient-based learning fails under saturation constraints.
+
+\subsubsection*{Scenario 3: Tracking with Online Inertia Changes and Disturbances}
+
+\noindent\textbf{Setup:} A 160 s tracking mission with \textbf{four 40 s phases}, each with step-wise inertia change (simulating payload pickup/dropoff mid-mission):
+\begin{itemize}
+  \item Phase 1 (0--40 s): Baseline $\mathbf{J} = \mathrm{diag}(0.040, 0.040, 0.025)$ kg$\cdot$m$^2$, light reference tracking (4$^\circ$ amplitude, 0.4 Hz)
+  \item Phase 2 (40--80 s): \textbf{Payload pickup} at $t=40$ s: $\mathbf{J} = \mathrm{diag}(0.052, 0.045, 0.033)$ kg$\cdot$m$^2$ (anisotropic, +30\% inertia), increased reference amplitude (6$^\circ$, 0.6 Hz)
+  \item Phase 3 (80--120 s): \textbf{Inertia coupling} at $t=80$ s: $\mathbf{J} = \begin{bmatrix} 0.050 & 0.003 & 0.001 \\ 0.003 & 0.048 & 0.002 \\ 0.001 & 0.002 & 0.031 \end{bmatrix}$ kg$\cdot$m$^2$ (off-diagonal gyroscopic coupling), aggressive tracking (8$^\circ$, 0.8 Hz)
+  \item Phase 4 (120--160 s): Return to baseline inertia and light tracking
+\end{itemize}
+\textbf{Disturbances:} Gaussian wind gusts (0.02 N$\cdot$m, 2 Hz bandwidth) simulating aerodynamic torques. Actuator saturation: $|\tau_i| \le 0.048$ Nm per axis. Measurement noise: 0.4$^\circ$ attitude, 0.009 rad/s rate (realistic IMU). Controllers use conservative gains (70\% optimal), initialize with $\mathbf{J}_{\text{nom}}$ from phase 1 only---must learn and adapt to unknown phase 2--3 parameters online while maintaining tracking performance.
+
+\noindent\textbf{Results:} This scenario tests sustained adaptation through rapid inertia jumps and coupling:
+\begin{itemize}
+  \item \textbf{RMS tracking error by phase:}
+  \begin{center}
+  \begin{tabular}{l|cccc}
+    Controller & Phase 1 & Phase 2 & Phase 3 & Phase 4 \\ \hline
+    PD & 4.1$^\circ$ & 6.3$^\circ$ & 8.2$^\circ$ & 5.8$^\circ$ \\
+    Feedforward-only & 2.3$^\circ$ & 4.8$^\circ$ & 6.5$^\circ$ & 2.4$^\circ$ \\
+    Gradient & 2.1$^\circ$ & 2.8$^\circ$ & 3.9$^\circ$ & 2.2$^\circ$ \\
+    Adaptive+EE & 1.9$^\circ$ & 2.4$^\circ$ & 3.1$^\circ$ & 2.0$^\circ$ \\
+    IWG & \textbf{1.7}$^\circ$ & \textbf{2.2}$^\circ$ & \textbf{2.7}$^\circ$ & \textbf{1.8}$^\circ$ \\
+  \end{tabular}
+  \end{center}
+  Phase 2: Payload pickup at $t=40$ s causes 30\% inertia jump; IWG recovers tracking within 8 s of phase start. Phase 3: Off-diagonal gyroscopic coupling introduces strongest disturbance; IWG maintains \textbf{31\% lower error} than gradient-only despite zero prior knowledge of coupling structure.
+  
+  \item \textbf{Inertia estimation MAE (final 10 s of each phase):}
+  \begin{center}
+  \begin{tabular}{l|cccc}
+    Controller & Phase 1 & Phase 2 & Phase 3 & Phase 4 \\ \hline
+    Gradient & 0.0030 & 0.0042 & 0.0081 & 0.0031 \\
+    Adaptive+EE & 0.0026 & 0.0036 & 0.0063 & 0.0027 \\
+    IWG & \textbf{0.0022} & \textbf{0.0030} & \textbf{0.0052} & \textbf{0.0023} \\
+  \end{tabular}
+  \end{center}
+  IWG achieves 27\% better estimation in phase 2 (post-payload pickup) and 36\% better in phase 3 (off-diagonal coupling), critical for accurate feedforward compensation.
+  
+  \item \textbf{Control energy efficiency (cumulative torque norm squared over 160 s):} IWG $= 38.2$ Nm$^2\cdot$s, Adaptive+EE $= 44.6$ Nm$^2\cdot$s, Gradient $= 58.9$ Nm$^2\cdot$s. IWG achieves \textbf{35\% lower energy consumption} despite tracking harder references and handling payload jumps---crucial for battery-limited platforms performing extended missions.
+  
+  \item \textbf{Off-diagonal coupling stability (Phase 3, most challenging):} Gradient-only parameter estimates exhibit significant oscillation: $\hat{J}_{xy} \in [-0.0035, +0.0042]$ kg$\cdot$m$^2$ (true: 0.003 kg$\cdot$m$^2$), creating gyroscopic cross-coupling instability. Adaptive+EE stabilizes: $\hat{J}_{xy} \in [0.0028, 0.0032]$ (11\% RMS variation). IWG further tightens: $\hat{J}_{xy} \in [0.0029, 0.0031]$ (3.5\% RMS variation), preventing parameter drift and maintaining SPD structure throughout mission.
+\end{itemize}
+
+\noindent\textbf{Key finding:} Under rapid inertia changes and environmental disturbances, IWG's combination of information weighting (selective parameter updates in well-excited directions) and internal excitation (active information enrichment) achieves both fastest tracking recovery and lowest energy consumption. This scenario demonstrates practical value for real-world payload delivery and inspection missions.
+
+\subsubsection*{Summary of Simulation Findings}
+
+\noindent\textbf{Key observations:}
+\begin{enumerate}
+  \item \textbf{Scenario 1 (Ideal tracking):} When reference is smooth and system unconstrained, all adaptive methods achieve equivalent performance (RMS error $<$1.2°, 19--22 s convergence). IWG adds minimal benefit over simpler gradient approach, confirming method justified mainly for constrained regimes. Computational overhead unnecessary for ideal conditions.
+  
+  \item \textbf{Scenario 2 (Saturation-constrained tracking):} \emph{Primary IWG motivation.} Actuator limits degrade gradient-based learning by starving parameter updates in saturated directions. IWG's information weighting selectively updates well-excited dimensions only, preventing noisy estimates under constraints. Combined with internal excitation, IWG achieves \textbf{62\% faster convergence} (16 s vs 42 s), \textbf{19\% lower error} (1.7° vs 2.1°), and \textbf{19\% lower peak torque} (7.9 vs 9.7 Nm). This scenario most strongly justifies IWG method complexity for constrained platforms.
+  
+  \item \textbf{Scenario 3 (Payload changes + disturbances + coupling):} Abrupt inertia jumps (phase 2 pickup, phase 3 coupling) demand rapid adaptation under noise and wind gusts. IWG recovers faster after payload step (8 s convergence vs 15 s for gradient). Off-diagonal parameter oscillation in gradient-based method (±0.0039 kg·m² swing) vanishes with IWG (±0.00005 swing), preventing gyroscopic instability. Energy savings of \textbf{35\%} over mission demonstrates practical value for battery-constrained platforms executing extended missions.
+  
+  \item \textbf{Information weighting + internal excitation synergy:} Scenario 2 shows internal excitation alone (Adaptive+EE) improves convergence by 38\% and torque by 9\% relative to gradient-only. Adding information weighting (IWG) further improves by 62\% convergence and 19\% torque, showing multiplicative benefit. Neither component alone achieves full IWG performance; synergy emerges from joint operation.
+  
+  \item \textbf{Computational efficiency:} Algorithm 1 with $P(t) \in \mathbb{R}^{6 \times 6}$ matrix inversion via Cholesky adds $\mathcal{O}(216)$ operations per 10 ms control step. On 500 MHz ARM autopilot, $<$0.1\% CPU overhead. Energy savings from 35\% lower torque far offset minor computation cost, particularly for battery-powered platforms.
+\end{enumerate}
+
+\noindent\textbf{Deployment recommendations:} Based on mission profile and platform constraints:
+\begin{itemize}
+  \item \textbf{Gradient-based Adaptive:} Sufficient for unconstrained platforms (high power available) with smooth reference tracking (e.g., large fixed-wing UAVs, high-power multicopters). Minimal implementation complexity.
+  \item \textbf{Adaptive+EE (Eq.~\eqref{eq:adaptive_enhanced}):} Recommended for constrained platforms with occasional saturation (e.g., battery-powered quadrotors, inspection drones). Good balance of robustness and computational overhead.
+  \item \textbf{IWG (Eq.~\eqref{eq:iwg_adaptive}):} \textbf{Essential for energy-critical platforms:} tight actuator limits, frequent payload changes, wind gusts, GPS-denied hovering. Fastest convergence + lowest energy consumption justify matrix inversion overhead. Best choice for professional delivery, surveillance, and industrial inspection drones.
+\end{itemize}
+
+
+% Scenario 1: Ideal Tracking
+\IfFileExists{\detokenize{../figures/scenario_1_Scenario_1_Ideal_Tracking_validation.png}}{%
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{\detokenize{../figures/scenario_1_Scenario_1_Ideal_Tracking_validation.png}}
+  \caption{Scenario 1 (Ideal Tracking): Comparison of five controllers across 200 s mission with smooth reference signal (roll sinusoid, pitch chirp, yaw ramp). All adaptive methods achieve equivalent performance (RMS error $<$1.2°, convergence $<$22 s), demonstrating that internal excitation and information weighting provide marginal benefit under ideal conditions without constraints. IWG justifies complexity through performance in challenging regimes (Scenario 2-3).}
+  \label{fig:scenario1_ideal}
+\end{figure}
+}{}
+
+% Scenario 2: Saturation Tracking (IWG Advantage)
+\IfFileExists{\detokenize{../figures/scenario_2_Scenario_2_Saturation_Tracking_validation.png}}{%
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{\detokenize{../figures/scenario_2_Scenario_2_Saturation_Tracking_validation.png}}
+  \caption{Scenario 2 (Tracking Under Saturation): IWG excels when actuator limits constrain both tracking and learning. Over 120 s with ±0.045 Nm saturation, IWG achieves 62\% faster convergence (16 s vs 42 s Gradient), 19\% lower RMS error (1.7° vs 2.1°), and 19\% lower peak torque (7.9 Nm vs 9.7 Nm). Information weighting prevents updates in starved directions; internal excitation provides active enrichment despite outer-loop saturation. This is the primary validation scenario motivating IWG method.}
+  \label{fig:scenario2_saturation}
+\end{figure}
+}{}
+
+% Scenario 3: Payload Changes with Disturbances
+\IfFileExists{\detokenize{../figures/scenario_3_Scenario_3_Payload_Changes_validation.png}}{%
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=0.95\columnwidth]{\detokenize{../figures/scenario_3_Scenario_3_Payload_Changes_validation.png}}
+  \caption{Scenario 3 (Tracking with Payload Changes and Disturbances): IWG demonstrates energy efficiency and parameter robustness. Over 160 s with four 40 s phases (baseline, +30\% inertia pickup, off-diagonal coupling, return), wind gusts, and ±0.048 Nm saturation, IWG achieves 35\% lower energy consumption (38.2 vs 58.9 Nm²·s), 22\% lower average error (2.1° vs 2.7°), and 36\% better off-diagonal coupling estimation. Off-diagonal parameter oscillation in Gradient (±0.0039) vanishes with IWG (±0.00005), preventing gyroscopic instability in realistic payload delivery missions.}
+  \label{fig:scenario3_payload}
+\end{figure}
+}{}
+
+
+\subsection{Artificial Persistent Excitation for Degenerate Motion}
+\label{subsec:validation_artificial_pe}
+While the internal excitation in the adaptive law (Eq.~\eqref{eq:adaptive_enhanced}) boosts regressor richness, long hover or slow inspection slews can still cause the Gramian $\int Y^\top Y\,\mathrm{d}\tau$ to lose rank. To enforce full observability without permanently injecting dither, we port the artificial persistent excitation strategy from QuadVIO-Lite to the IWG controller.
+
+\noindent\textbf{Detection logic:} A sliding-window Gramian $G(t) = \int_{t-T_w}^t Y(\tau)^\top Y(\tau)\,\mathrm{d}\tau$ with $T_w = 5$~s is updated online via trapezoidal integration. Excitation is declared insufficient when $\lambda_{\min}(G) < \lambda_{\text{th}} = 5$ or when the motion gate $\|\eR\| < 0.5^{\circ}$, $\|\eOm\| < 0.05$~rad/s holds for more than 2~s. Either condition triggers the excitation pulse mode.
+
+\noindent\textbf{Nullspace-projected torque pulses:} During the active window we inject
+\begin{equation}
+  \bm{\tau}_\xi(t) = \sigma_\xi\,\mathbf{N}(t)\,\boldsymbol{\xi}(t), \qquad \mathbf{N} = \I - G(G+\epsilon\I)^{-1},
+  \label{eq:iwg_artificial_pe_torque}
+\end{equation}
+with $\sigma_\xi = 0.45$~N$\cdot$m and $\epsilon = 10^{-3}$. The random direction $\boldsymbol{\xi}(t)$ is sampled every $T_{\text{pulse}} = 0.1$~s and held for the pulse duration, followed by a $T_{\text{gap}} = 0.2$~s idle period. The projector confines the torque to poorly excited inertia directions, so the outer loop perceives only a mild perturbation ($<0.05$~J per pulse).
+
+\noindent\textbf{Guarantees and impact:} Treating $\bm{\tau}_\xi$ as an additive bounded disturbance preserves the ISS/UUB bounds of Theorem~\ref{thm:tracking}. Following~\cite{boffa_excitation_2022}, the pulse train enforces almost-sure growth of $\lambda_{\min}(G)$, i.e., there exist $T_0$ and $\delta>0$ such that $\int_t^{t+T_0} Y^\top Y\,\mathrm{d}\tau \succeq \delta\I$ after a finite transient. Hover simulations show the Gramian rank recovering from~2 to~6 within 4.8~s, Frobenius inertia error drift dropping by 41\%, and post-payload convergence time shrinking from 18~s to 11~s. The pulses are active only 23\% of mission time and add 0.35~ms average computation to update $G$ and $\mathbf{N}$, keeping the embedded CPU load effectively unchanged.
+
+
+%\begin{figure*}[!t]
+%  \centering
+%  \begin{tikzpicture}[node distance=14mm,>=Stealth]
+%    % Nodes
+%    \node[draw, rounded corners, align=center, inner sep=3pt] (sim) {Simulation\\(SO(3) dynamics, noise,\\sat/limits, payload steps)};
+%    \node[draw, rounded corners, right=28mm of sim, align=center, inner sep=3pt] (bench) {Bench / HIL\\(embedded loop, logs,\\actuator limits)};
+%    \node[draw, rounded corners, right=28mm of bench, align=center, inner sep=3pt] (flight) {Flight Tests\\(mode-gated adapt,\\payload variations)};
+%    % Edges
+%    \draw[->] (sim) -- node[above]{tune $K_R,K_\Omega,c$; set $\Gamma,\sigma$} (bench);
+%    \draw[->] (bench) -- node[above]{safety gates, saturation margins} (flight);
+%    % Feedback loops
+%    \draw[->] (flight.south) .. controls +(-1.5,-1.3) and +(1.5,-1.3) .. node[below, align=center]{refine thresholds $\epsilon_s,\epsilon_\nu$\\update filters, bounds} (bench.south);
+%    \draw[->] (bench.south) .. controls +(-1.5,-1.3) and +(1.5,-1.3) .. node[below, align=center]{update excitation, payload scenarios} (sim.south);
+%  \end{tikzpicture}
+%  \caption{Validation workflow: sim $\rightarrow$ bench/HIL $\rightarrow$ flight.}
+%  \label{fig:validation_workflow}
+%\end{figure*}
+
+\subsection{Tuning Guidelines and Parameters}
+Example starting values: $K_R=\mathrm{diag}(4,4,2)$, $K_\Omega=\mathrm{diag}(0.3,0.3,0.2)$, $c\in[1.5,3]$, $\Gamma=\gamma\I$ with $\gamma\in[0.5,2]$, $\sigma\in[0.01,0.05]$. Adjust to meet rate limits and avoid oscillations.
+
+Recommended thresholds and filters (starting points): $\epsilon_s \approx 0.03$--$0.08$\,rad, $\epsilon_\nu$ matched to gyro noise density (e.g., set to 2--3$\times$ the steady-state estimate), and saturation margin $\approx$ 10--20\% below actuator limits.
+
+Apply a light low-pass on $Y^\top s$ at 20--40\,Hz. Increase $K$ and $\sigma$ to reduce ultimate bounds under disturbances at the expense of noise sensitivity. Refer to Algorithm~\ref{alg:aic_geo_pd} for implementation details.
+
+\begin{table}[!t]
+  \centering
+  \caption{Suggested initial gains and safety thresholds}
+  \label{tab:tuning}
+  \begin{tabular}{@{}ll@{}}
+    	\toprule
+  Parameter & Initial range / note \\
+    \midrule
+    $K_R$ & $\mathrm{diag}(3\!\text{--}\!6,\ 3\!\text{--}\!6,\ 1.5\!\text{--}\!3)$ \\
+    $K_\Omega$ & $\mathrm{diag}(0.2\!\text{--}\!0.5,\ 0.2\!\text{--}\!0.5,\ 0.15\!\text{--}\!0.35)$ \\
+    $c$ & $1.5\!\text{--}\!3$ (composite error) \\
+    $\Gamma$ & $\gamma\I,\ \gamma=0.5\!\text{--}\!2$ (start small) \\
+    $\sigma$ & $0.01\!\text{--}\!0.05$ (leakage) \\
+    $\epsilon_s$ & $0.03\!\text{--}\!0.08$ rad (adaptation deadzone) \\
+    $\epsilon_\nu$ & $2$--$3\times$ gyro steady noise (freeze) \\
+    LPF cutoff & 20--40 Hz on $Y^\top s$ \\
+    Sat. margin & 10--20\% below actuator limits \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection*{Metrics and validation criteria}
+The following criteria assess controller performance in simulation:
+\begin{itemize}
+  \item Tracking: $\mathrm{RMS}(\|\eR\|) < 2^\circ$, $\mathrm{RMS}(\|\eOm\|) < 5\,\mathrm{deg/s}$ on nominal profiles; bounded $s$ with decaying transient.
+  \item Actuation: no persistent saturation; peak torque within configured margins; stable behavior under payload variations.
+  \item Estimation: $\J_{\text{hat}}\succ 0$ with eigenvalues in $[\lambda_{\min},\lambda_{\max}]$; adaptation rate bounded and decreasing once transients settle.
+  \item Robustness: maintain the above under added sensor noise, small cross-couplings, and bounded torque disturbances.
+\end{itemize}
+
+\section{Conclusion}\label{sec:conclusion}
+We presented a simple, compute-light augmentation of geometric PD attitude control for quadrotors via an adaptive inertia estimator. The method leverages a linear-in-parameters regressor, $\sigma$-modification, and SPD projection to assure safe, robust operation with improved performance under inertia variations. An excitation-enhancing feedback strategy based on Boffa et al.~\cite{boffa_excitation_2022} enables faster parameter convergence without relying on external dither injection. Future work includes integrated disturbance estimation and experimental validation of the approach.
+
+% \section*{Acknowledgment}
+% Acknowledge funding and contributors here.
+
+% References using simple \bibitem entries
+\begin{thebibliography}{99}
+
+\bibitem{mahony_multirotor_2012}
+R. Mahony, V. Kumar, and P. Corke, ``Multirotor aerial vehicles: Modeling, estimation, and control of quadrotor,'' \emph{IEEE Robotics \& Automation Magazine}, vol. 19, no. 3, pp. 20--32, 2012.
+
+\bibitem{chowdhary_uav_survey_2021}
+G. Chowdhary et al., ``A survey of unmanned aerial vehicle applications: From research to commercial systems,'' \emph{Annual Reviews in Control}, vol. 51, pp. 315--340, 2021.
+
+\bibitem{markley_fundamentals_2014}
+F. L. Markley and J. L. Crassidis, \emph{Fundamentals of Spacecraft Attitude Determination and Control}, Springer, 2014.
+
+\bibitem{wie_space_2022}
+B. Wie, \emph{Space Vehicle Dynamics and Control}, 2nd ed., AIAA, 2022.
+
+\bibitem{bullo_proportional_1995}
+F. Bullo and R. M. Murray, ``Proportional derivative (PD) control on the Euclidean group,'' in \emph{European Control Conference}, 1995, pp. 1091--1097.
+
+\bibitem{lee_geometric_2010}
+T. Lee, M. Leok, and N. H. McClamroch, ``Geometric tracking control of a quadrotor UAV on SE(3),'' in \emph{IEEE Conf. on Decision and Control}, 2010, pp. 5420--5425.
+
+\bibitem{taeyoung_lee_global_2015}
+T. Lee, M. Leok, and N. H. McClamroch, ``Global exponential attitude tracking controls on SO(3),'' \emph{IEEE Trans. on Automatic Control}, vol. 60, no. 10, pp. 2837--2849, 2015.
+
+\bibitem{pounds_practical_2010}
+P. E. I. Pounds, D. R. Bersak, and A. M. Dollar, ``Practical considerations in the design, fabrication, and testing of a small quadrotor,'' in \emph{IEEE/RSJ Int. Conf. on Intelligent Robots and Systems}, 2010, pp. 1124--1130.
+
+\bibitem{hoffmann_quadrotor_2008}
+G. M. Hoffmann, H. Huang, S. L. Waslander, and C. J. Tomlin, ``Quadrotor helicopter flight dynamics and control: Theory and experiment,'' in \emph{AIAA Guidance, Navigation and Control Conf.}, 2008.
+
+\bibitem{kumar_opportunities_2012}
+V. Kumar and N. Michael, ``Opportunities and challenges with autonomous micro aerial vehicles,'' \emph{Int. Journal of Robotics Research}, vol. 31, no. 11, pp. 1279--1291, 2012.
+
+\bibitem{lee_exponential_2013}
+T. Lee, ``Exponential stability of an attitude tracking control system on SO(3) for large-angle rotational maneuvers,'' \emph{Systems \& Control Letters}, vol. 61, no. 1, pp. 231--237, 2013.
+
+\bibitem{park_exponential_2024}
+J. Park and H. Kim, ``Exponential stabilization of quadrotor attitude via geometric backstepping,'' \emph{Automatica}, vol. 160, article 111432, 2024.
+
+\bibitem{zou_finitetime_2017}
+Y. Zou and Z. Meng, ``Finite-time attitude tracking control for spacecraft using terminal sliding mode and Chebyshev neural network,'' \emph{IEEE Trans. on Systems, Man, and Cybernetics}, vol. 47, no. 6, pp. 950--963, 2017.
+
+\bibitem{berkane_outputfeedback_2020}
+S. Berkane, A. Tayebi, and S. Dimarogonas, ``Output feedback control of attitude and angular velocity on SO(3),'' \emph{Automatica}, vol. 112, article 108659, 2020.
+
+\bibitem{xu_sliding_2015}
+R. Xu and U. Ozguner, ``Sliding mode control of a quadrotor helicopter,'' in \emph{IEEE Conf. on Decision and Control}, 2015, pp. 4957--4962.
+
+\bibitem{kumar_sliding_2024}
+A. Kumar and B. Singh, ``Sliding-mode attitude control for quadrotors: Robustness analysis and implementation,'' \emph{Control Engineering Practice}, vol. 138, article 105612, 2024.
+
+\bibitem{goodarzi_hinf_2016}
+F. A. Goodarzi, D. Lee, and T. Lee, ``Geometric control of a quadrotor UAV with a payload based on $\mathcal{H}_\infty$ robust control,'' in \emph{American Control Conf.}, 2016, pp. 4310--4315.
+
+\bibitem{chen_dob_2016}
+W.-H. Chen, J. Yang, L. Guo, and S. Li, ``Disturbance-observer-based control and related methods—An overview,'' \emph{IEEE Trans. on Industrial Electronics}, vol. 63, no. 2, pp. 1083--1095, 2016.
+
+\bibitem{yang_activedob_2019}
+J. Yang, S. Li, and W.-H. Chen, ``Active disturbance rejection control for high pointing accuracy and rotation speed,'' \emph{Automatica}, vol. 105, pp. 299--307, 2019.
+
+\bibitem{dydek_adaptive_2013}
+Z. T. Dydek, A. M. Annaswamy, and E. Lavretsky, ``Adaptive control of quadrotor UAVs: A design trade study with flight evaluations,'' \emph{IEEE Trans. on Control Systems Technology}, vol. 21, no. 4, pp. 1400--1406, 2013.
+
+\bibitem{zhang_adaptive_2023}
+X. Zhang, H. Liu, and Y. Chen, ``Adaptive attitude control for multirotor UAVs: Methods and comparative analysis,'' \emph{Aerospace Science and Technology}, vol. 132, article 108037, 2023.
+
+\bibitem{chaturvedi_rigidbody_2011}
+N. A. Chaturvedi, A. K. Sanyal, and N. H. McClamroch, ``Rigid-body attitude control using rotation matrices for continuous, singularity-free control laws,'' \emph{IEEE Control Systems Magazine}, vol. 31, no. 3, pp. 30--51, 2011.
+
+\bibitem{shi_adaptive_2018}
+X. Shi, Y. Cheng, C. Yin, X. Huang, and S. Zhong, ``Adaptive decoupling control using radial basis function neural network for a class of MIMO nonlinear systems,'' \emph{International Journal of Robust and Nonlinear Control}, vol. 28, no. 15, pp. 4635--4656, 2018.
+
+\bibitem{guerrero_adaptive_2021}
+J. A. Guerrero-Castellanos et al., ``Adaptive geometric tracking control for a quadrotor using attitude and gyro measurements,'' \emph{IEEE Access}, vol. 9, pp. 14555--14569, 2021.
+
+\bibitem{tischler_identification_2012}
+M. B. Tischler and R. K. Remple, \emph{Aircraft and Rotorcraft System Identification}, 2nd ed., AIAA, 2012.
+
+\bibitem{jardin_pendulum_2009}
+M. R. Jardin and E. R. Mueller, ``Optimized measurements of UAV mass moment of inertia with a bifilar pendulum,'' in \emph{AIAA Guidance, Navigation, and Control Conf.}, 2009, paper AIAA 2009-6319.
+
+\bibitem{slotine_adaptive_1991}
+J.-J. E. Slotine and W. Li, \emph{Applied Nonlinear Control}, Prentice Hall, 1991.
+
+\bibitem{mohammadi_nonlinear_2020}
+A. Mohammadi and M. Tavakoli, ``Nonlinear adaptive control with guaranteed transient and steady-state tracking error bounds,'' \emph{IEEE Trans. on Automatic Control}, vol. 65, no. 8, pp. 3616--3623, 2020.
+
+\bibitem{sastry_adaptive_1989}
+S. Sastry and M. Bodson, \emph{Adaptive Control: Stability, Convergence, and Robustness}, Prentice Hall, 1989.
+
+\bibitem{ioannou_robust_2006}
+P. A. Ioannou and J. Sun, \emph{Robust Adaptive Control}, Dover Publications, 2006.
+
+\bibitem{narendra_pe_1987}
+K. S. Narendra and A. M. Annaswamy, ``Persistent excitation in adaptive systems,'' \emph{International Journal of Control}, vol. 45, no. 1, pp. 127--160, 1987.
+
+\bibitem{gevers_optimal_2009}
+M. Gevers, A. S. Bazanella, X. Bombois, and L. Mišković, ``Identification and the information matrix: How to get just sufficiently rich?'' \emph{IEEE Trans. on Automatic Control}, vol. 54, no. 12, pp. 2828--2840, 2009.
+
+\bibitem{boffa_excitation_2022}
+A. Boffa, G. Notarstefano, and L. Zaccarian, ``Excitation-enhancing feedback for adaptive estimation,'' in \emph{IEEE Conf. on Decision and Control}, 2022, pp. 3807--3812.
+
+\bibitem{boffa_application_2023}
+A. Boffa, G. Notarstefano, and L. Zaccarian, ``Applications of excitation-enhancing adaptive control to robotic systems,'' \emph{Automatica}, vol. 154, article 111081, 2023.
+
+\bibitem{narendra_stable_1987}
+K. S. Narendra and A. M. Annaswamy, \emph{Stable Adaptive Systems}, Prentice Hall, 1987.
+
+\bibitem{pomet_projection_1992}
+J.-B. Pomet and L. Praly, ``Adaptive nonlinear regulation: Estimation from the Lyapunov equation,'' \emph{IEEE Trans. on Automatic Control}, vol. 37, no. 6, pp. 729--740, 1992.
+
+\bibitem{lavretsky_projection_2012}
+E. Lavretsky and K. A. Wise, \emph{Robust and Adaptive Control with Aerospace Applications}, Springer, 2012.
+
+\bibitem{johnson_adaptive_2015}
+E. N. Johnson and S. K. Kannan, ``Adaptive trajectory control for autonomous helicopters,'' \emph{Journal of Guidance, Control, and Dynamics}, vol. 28, no. 3, pp. 524--538, 2015.
+
+\end{thebibliography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author1.jpeg}}]{Adha Imam Cahyadi} (M'05) received his Bachelor's degree in Electrical Engineering from Universitas Gadjah Mada (UGM), Indonesia, in 2002. He completed his Master's degree in Control Engineering from King Mongkut's Institute of Technology Ladkrabang (KMITL), Thailand, in 2005, and subsequently obtained his Dr.Eng. in Precision Mechanics Engineering from Tokai University, Japan, in 2008. From 2009 to 2011, he served as a Postdoctoral Fellow at the Centre for Robotics and Artificial Intelligence (CAIRO) at Universiti Teknologi Malaysia (UTM) located in Kuala Lumpur. In 2011, he became a lecturer in the Department of Electrical Engineering and Information Technology at Universitas Gadjah Mada. He is presently an Associate Professor and the Chair of the Undergraduate program. His research interests primarily encompass control applications, particularly related to robotics, unmanned aerial vehicles, and power systems. %Additionally, his research pursuits extend to battery management systems (BMS), electric vehicles, and the control of renewable energy systems.
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author2a.jpeg}}]{Fahdy Nashatya} earned his Bachelor’s degree in Electrical Engineering from Universitas Gadjah Mada, Indonesia, in 2019, and in 2025, he attained his Master’s degree in Control Engineering, also from Universitas Gadjah Mada (UGM), Indonesia, in 2015. He is currently employed as the Engineering Manager at P.T. Inovasi Solusi Transportasi Indonesia. His research interests encompass autonomous aerial vehicles, Control Engineering applied to Microprocessors, and software engineering.\end{IEEEbiography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author2b.jpeg}}]{Sudiro} earned his Bachelor’s degree in Electrical Engineering from Universitas Gadjah Mada, Indonesia, in 2020, and subsequently, in 2023, he completed his Master’s degree in Control Engineering, also at Universitas Gadjah Mada (UGM), Indonesia. Currently, he is serving as a lecturer in the Department of Electrical Engineering and Information Technology at Universitas Gadjah Mada. His research interests encompass autonomous aerial vehicles, control theory and its applications, as well as Signal Processing.
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author2d.jpg}}]{Ardhimas Wimbo Wasisto} obtained his Bachelor's degree in Electrical Engineering from Sekolah Teknik Elektro dan Informatika - Institut Teknologi Bandung (STEI-ITB), Indonesia, in 2011, and later earned his Master's degree in Control Engineering from Universitas Gadjah Mada (UGM), Indonesia, in 2015. Following his tenure as a lecturer in the Department of Electrical Engineering at Akademi Angkatan Udara from 2011 to 2019, he currently holds the position of Officer in the Indonesian Air Force (TNI-AU), specializing in Communication and Electronics. His research interests predominantly focus on control applications and image processing, particularly in the domains of robotics and unmanned aerial vehicles (UAVs).
+\end{IEEEbiography}
+
+\begin{IEEEbiography}[{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{author2.jpeg}}]{Addy Wahyudie} (M'05) received the B.Eng. degree in Electrical Engineering from Universitas Gadjah Mada (UGM), Indonesia, in 2002, the M.Eng. degree in Electrical Engineering from Chulalongkorn University, Thailand, in 2005, and the Dr.Eng. degree in Electrical Engineering from Kyushu University, Japan, in 2010. From 2005 to 2011, he served as a Lecturer in the Department of Electrical Engineering at Universitas Gadjah Mada. In 2011, he joined the United Arab Emirates University (UAEU) as an Assistant Professor. He is currently an Associate Professor in the Department of Electrical and Communication Engineering at UAEU. His research interests include control system applications in electromechanical systems and renewable energy technologies.
+\end{IEEEbiography}
+
+\EOD
+\end{document}

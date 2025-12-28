@@ -1,0 +1,85 @@
+{
+  "name": "Survey Pattern",
+  "description": "Lawn-mower pattern for aerial surveying or mapping",
+  "default_altitude": 15.0,
+  "default_speed": 4.0,
+  "pattern_type": "survey",
+  "waypoints": [
+    {
+      "id": 1,
+      "lat": 37.7749,
+      "lon": -122.4194,
+      "alt": 15.0,
+      "description": "Survey line 1 - start"
+    },
+    {
+      "id": 2,
+      "lat": 37.7754,
+      "lon": -122.4194,
+      "alt": 15.0,
+      "description": "Survey line 1 - end"
+    },
+    {
+      "id": 3,
+      "lat": 37.7754,
+      "lon": -122.4195,
+      "alt": 15.0,
+      "description": "Survey line 2 - start"
+    },
+    {
+      "id": 4,
+      "lat": 37.7749,
+      "lon": -122.4195,
+      "alt": 15.0,
+      "description": "Survey line 2 - end"
+    },
+    {
+      "id": 5,
+      "lat": 37.7749,
+      "lon": -122.4196,
+      "alt": 15.0,
+      "description": "Survey line 3 - start"
+    },
+    {
+      "id": 6,
+      "lat": 37.7754,
+      "lon": -122.4196,
+      "alt": 15.0,
+      "description": "Survey line 3 - end"
+    },
+    {
+      "id": 7,
+      "lat": 37.7754,
+      "lon": -122.4197,
+      "alt": 15.0,
+      "description": "Survey line 4 - start"
+    },
+    {
+      "id": 8,
+      "lat": 37.7749,
+      "lon": -122.4197,
+      "alt": 15.0,
+      "description": "Survey line 4 - end"
+    }
+  ],
+  "camera": {
+    "enabled": true,
+    "trigger_interval": 2.0,
+    "overlap": 70,
+    "description": "Camera triggers every 2 seconds for image capture"
+  },
+  "survey_parameters": {
+    "line_spacing": 10.0,
+    "area_coverage": "approx 50m x 30m",
+    "flight_time_estimate": "5-7 minutes",
+    "image_overlap": "70%"
+  },
+  "notes": [
+    "Ideal for aerial photography and mapping",
+    "Maintains constant altitude for consistent imagery",
+    "Lawn-mower pattern ensures complete area coverage",
+    "Replace coordinates with your survey area",
+    "Adjust line_spacing based on camera FOV",
+    "Ensure sufficient battery for complete survey"
+  ]
+}

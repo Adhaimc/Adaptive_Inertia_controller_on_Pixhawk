@@ -1,0 +1,75 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+logs/
+*.log
+*.csv
+
+# Configuration (if contains sensitive data)
+# config/flight_params.yaml  # Uncomment if you have sensitive data
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Mission files with real coordinates (optional)
+# missions/*.json  # Uncomment to avoid committing real flight coordinates
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# MAVProxy
+.mavproxy/
+
+# ArduPilot
+*.core
+*.elf
+*.bin
+*.px4

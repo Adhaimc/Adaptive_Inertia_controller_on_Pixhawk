@@ -1,0 +1,290 @@
+# Pixhawk 2.4.8 Flight Parameters Configuration
+# Template for migration from Erle-Brain 2
+
+# ============================================================================
+# CONNECTION SETTINGS
+# ============================================================================
+connection:
+  # Pixhawk 2.4.8 requires different connection strings than Erlebrain 2
+  # Erlebrain used 921600 baud; Pixhawk uses 115200 (USB) or 57600 (radio)
+  
+  # USB Connection (direct to computer)
+  # macOS examples:
+  # /dev/cu.usbmodem14101  (check with: ls /dev/cu.usb*)
+  # 
+  # Linux examples:
+  # /dev/ttyUSB0
+  #
+  # Windows examples (via Mission Planner or MAVProxy):
+  # COM3
+  default_string: '/dev/cu.usbmodem14101'  # CHANGE FOR YOUR SYSTEM
+  
+  # Serial baud rates:
+  # USB: Always 115200 (regardless of Pixhawk settings)
+  # Telemetry radio (3DR, RFD): 57600
+  # WiFi module: Use UDP instead
+  baud_rate: 115200
+  
+  # Connection timeout in seconds
+  timeout: 30
+  
+  # WiFi alternative (if using WiFi module on TELEM2)
+  # Uncomment to use instead:
+  # default_string: 'udp:192.168.1.100:14550'  # Access point IP
+  # timeout: 30
+
+# ============================================================================
+# PIXHAWK-SPECIFIC HARDWARE CONFIGURATION
+# ============================================================================
+pixhawk:
+  # Motor layout on MAIN OUT connectors
+  # Pixhawk 2.4.8 MAIN OUT 1-4:
+  # 1 = Roll (Front-Right for X config)
+  # 2 = Pitch (Front-Left for X config)
+  # 3 = Throttle (Rear-Left for X config)
+  # 4 = Yaw (Rear-Right for X config)
+  motor_layout: "QUAD_X"
+  
+  # Compass calibration (must be done after mounting)
+  # Declination in degrees (positive = east, negative = west)
+  # Find your location's declination at: www.magnetic-declination.com
+  compass_declination: 5.2  # CHANGE FOR YOUR LOCATION
+  
+  # Sensor calibration (done via Mission Planner initially)
+  # These are set during calibration wizard, not manually edited
+  accelerometer_calibrated: false  # Set to true after first calibration
+  compass_calibrated: false        # Set to true after first calibration
+  radio_calibrated: false          # Set to true after first calibration
+
+# ============================================================================
+# FLIGHT PARAMETERS
+# ============================================================================
+flight:
+  # Altitude limits (meters AGL - Above Ground Level)
+  min_altitude: 2.0    # Minimum safe altitude for flight
+  max_altitude: 50.0   # Maximum altitude to allow in missions
+  default_altitude: 10.0  # Default waypoint altitude for missions
+  
+  # Speed limits (m/s)
+  min_speed: 0.5       # Minimum forward speed
+  max_speed: 10.0      # Maximum forward speed
+  default_speed: 5.0   # Default speed for waypoint missions
+  
+  # Takeoff parameters
+  takeoff_altitude: 10.0     # Climb to this altitude during auto-takeoff
+  takeoff_climb_rate: 1.0    # Rate of climb during takeoff (m/s)
+  takeoff_delay: 3.0         # Delay after armed before climbing (seconds)
+  
+  # Landing parameters
+  landing_descent_rate: 1.0  # Rate of descent during landing (m/s)
+  landing_threshold_altitude: 0.3  # When to declare landed (meters AGL)
+  landing_delay: 2.0         # Wait time before disarming after landing (seconds)
+  
+  # Loiter parameters (autonomous hover)
+  loiter_radius: 5.0   # How tightly to hold waypoint position (meters)
+  loiter_time: 10.0    # How long to hover at each waypoint (seconds)
+  
+  # Waypoint parameters
+  waypoint_acceptance_radius: 3.0  # Distance to consider waypoint reached (meters)
+  waypoint_heading_accuracy: 5.0   # Heading tolerance (degrees)
+
+# ============================================================================
+# SAFETY PARAMETERS
+# ============================================================================
+safety:
+  # Battery thresholds (for 3S LiPo: 11.1V nominal, 12.6V full, 9.9V dead)
+  # ADJUST FOR YOUR BATTERY TYPE
+  battery_critical: 10.5   # Voltage to trigger emergency land
+  battery_warning: 11.1    # Voltage to trigger return-to-launch
+  battery_full: 12.6       # Maximum expected voltage
+  
+  # GPS requirements for autonomous flight
+  gps_min_satellites: 6     # Minimum GPS satellites before auto mission
+  gps_min_hdop: 2.0         # Horizontal DOP (lower = better). 2.0 is good
+  gps_lock_timeout: 30.0    # Seconds to wait for GPS lock before timeout
+  
+  # Pre-arm safety checks
+  require_gps_lock: true       # Require 3D GPS lock before arming
+  require_home_set: true       # Require home position set
+  check_battery_level: true    # Check battery above warning level
+  check_rc_connection: true    # Require RC transmitter connected
+  check_compass_health: true   # Require compass healthy
+  check_accelerometer_health: true  # Require accel healthy
+  
+  # Failsafe settings
+  enable_geofence: true           # Enable geofence protection
+  enable_battery_failsafe: true   # Enable battery-based failsafe
+  enable_gps_failsafe: true       # Enable GPS loss failsafe
+  enable_radio_failsafe: true     # Enable radio loss failsafe
+  
+  # Failsafe actions
+  failsafe_action: "RTL"  # 'RTL' (Return To Launch), 'LAND', 'BRAKE'
+  failsafe_timeout: 3.0   # Seconds of signal loss before triggering failsafe
+  
+  # Emergency landing (quick descent if critical failure)
+  emergency_descent_rate: 2.0  # Rate of descent during emergency land (m/s)
+  emergency_timeout: 10.0      # Timeout for emergency land completion (seconds)
+
+# ============================================================================
+# GEOFENCING
+# ============================================================================
+geofence:
+  enabled: true
+  
+  # Fence type: 'cylinder' (radius from home) or 'polygon' (custom boundary)
+  type: 'cylinder'
+  
+  # Cylinder fence (only used if type == 'cylinder')
+  radius: 100.0  # Distance in meters from home position
+  
+  # Altitude fence (applies to both cylinder and polygon)
+  min_altitude: 2.0
+  max_altitude: 50.0
+  
+  # Action when fence breached: 'RTL' (return home), 'LAND', or 'BRAKE'
+  breach_action: 'RTL'
+  
+  # Polygon fence (only used if type == 'polygon')
+  # Define boundary points as [latitude, longitude] pairs
+  # Example for square 100m x 100m around home:
+  polygon_vertices: []  # Empty = disabled. Add coordinates to enable
+  # Example:
+  # polygon_vertices:
+  #   - [40.7128, -74.0060]  # NW corner
+  #   - [40.7128, -74.0040]  # NE corner
+  #   - [40.7108, -74.0040]  # SE corner
+  #   - [40.7108, -74.0060]  # SW corner
+
+# ============================================================================
+# ATTITUDE CONTROLLER (AIC) PARAMETERS
+# ============================================================================
+# These control how aggressively the aircraft tracks desired attitude
+# AIC = Adaptive Inertia-aware Composite control on SO(3)
+# See: IMPLEMENTATION_GUIDE_AIC.md for detailed explanation
+
+attitude_controller:
+  enabled: true  # Set to false to use default ArduCopter attitude control
+  
+  # ---- Initial Inertia Estimate ----
+  # Measured or estimated moment of inertia (kg·m²)
+  # Required for control law and parameter learning
+  # 
+  # To measure:
+  # 1. Physically measure mass and arm length
+  # 2. Spin quadcopter by hand (no props), measure oscillation period
+  # 3. Calculate using parallel axis theorem
+  # 
+  # Conservative approach: estimate slightly lower than measured
+  # (adaptive learning will increase as needed)
+  inertia_estimate:
+    Ixx: 0.040    # Roll moment of inertia (CHANGE for your aircraft)
+    Iyy: 0.040    # Pitch moment of inertia (usually ≈ Ixx)
+    Izz: 0.025    # Yaw moment of inertia (usually < Ixx due to props)
+  
+  # ---- Control Gains ----
+  # K_R: Gain on attitude error (geometric error on SO(3))
+  #   Higher = faster response, but may oscillate
+  #   Typical range: 3.0 - 10.0
+  #   Start conservative (low) and increase if sluggish
+  # K_Omega: Gain on angular velocity error
+  #   Higher = more damping, but may reduce responsiveness
+  #   Typical range: 0.1 - 0.5
+  # K: Robust damping gain (high-frequency noise rejection)
+  #   Higher = more noise rejection, but may reduce agility
+  #   Typical range: 0.05 - 0.2
+  # c: Composite error weighting (balances attitude vs rate feedback)
+  #   Typical range: 1.0 - 3.0
+  control_gains:
+    K_R: [5.0, 5.0, 3.0]      # [roll, pitch, yaw]
+    K_Omega: [0.3, 0.3, 0.2]  # [roll, pitch, yaw]
+    K: [0.1, 0.1, 0.1]        # Robust damping
+    c: 2.0                     # Composite error weight
+  
+  # ---- Adaptive Learning Parameters ----
+  # These control how quickly the controller learns inertia parameters
+  # Larger = faster learning, but less stable
+  # Smaller = slower learning, but more robust
+  adaptation_params:
+    gamma: 0.01       # Adaptation rate (larger = faster)
+    sigma: 0.001      # Leakage coefficient (prevents parameter drift)
+    beta: 0.04        # Regularization gain (information weighting)
+    gamma_ee: 0.0     # Excitation-enhancing weight (for IWG method)
+  
+  # ---- Information-Weighted Gradient (IWG) Settings ----
+  # IWG improves adaptation by weighting parameter updates based on
+  # information quality. Set use_iwg=false for standard gradient descent.
+  use_iwg: true      # Enable information-weighted gradient
+  use_diagonal: true # Use diagonal inertia model (faster, usually sufficient)
+  
+  # ---- Actuator Saturation ----
+  # Maximum torque command (Nm). Pixhawk ESCs typically saturate at ~0.1-0.2 Nm
+  # Set based on your propeller size and motor power
+  tau_max: 0.05      # Maximum torque (Nm) - TUNE FOR YOUR AIRCRAFT
+  
+  # ---- Filter Settings ----
+  # Composite error low-pass filter for noise rejection
+  s_filter_alpha: 0.1  # Filter coefficient (0-1, larger = more filtering)
+  
+  # ---- Internal Excitation ----
+  # Optional: adds small sinusoidal torque commands when information
+  # is insufficient for accurate parameter estimation
+  enable_excitation: false  # Set true to enable adaptive excitation
+  excitation_amplitude: 0.01  # Torque amplitude (Nm)
+  excitation_frequency: 0.5   # Frequency (Hz)
+
+# ============================================================================
+# TELEMETRY & LOGGING
+# ============================================================================
+telemetry:
+  # Log file location
+  log_directory: './logs'
+  
+  # Log levels: 'DEBUG', 'INFO', 'WARNING', 'ERROR'
+  log_level: 'INFO'
+  
+  # Telemetry update rate (Hz)
+  update_rate: 10
+  
+  # Enable individual data streams
+  log_attitude: true
+  log_position: true
+  log_velocity: true
+  log_battery: true
+  log_gps: true
+  log_imu: true
+  log_control_commands: true
+
+# ============================================================================
+# MISSION PLANNING
+# ============================================================================
+mission:
+  # Mission planning defaults
+  default_waypoint_altitude: 10.0  # Meters AGL
+  default_waypoint_speed: 5.0      # m/s
+  default_loiter_time: 10.0        # seconds
+  
+  # Auto-mission settings
+  auto_rtl_on_completion: true  # Return to launch after mission complete
+  pause_on_gps_loss: true       # Pause mission if GPS lock lost
+  resume_on_gps_regain: true    # Resume mission when GPS regains lock
+
+# ============================================================================
+# ADVANCED / EXPERT SETTINGS
+# ============================================================================
+# Only modify if you understand the implications
+
+advanced:
+  # RC failsafe
+  rc_failsafe_timeout: 3.0  # Seconds without RC signal before failsafe
+  
+  # Compass learning
+  compass_learn_mode: 'onground'  # 'onground' or 'inflight'
+  
+  # Tuning mode (logs extra data for parameter estimation)
+  enable_tuning_mode: false  # Set true for detailed logs during tuning
+  
+  # Motor test mode (for bench testing without flying)
+  enable_motor_test: false  # Set true to enable motor test via DroneKit
+  
+  # Debug output to console
+  debug_output: false  # Set true for verbose console logging

@@ -1,0 +1,138 @@
+# Erle-Brain 2 Flight Parameters Configuration
+
+# Connection Settings
+connection:
+  # Default connection string for Erle-Brain 2
+  # Options:
+  #   - 'udp:127.0.0.1:14550' (local on Erle-Brain)
+  #   - 'udp:192.168.x.x:14550' (via WiFi)
+  #   - '/dev/ttyAMA0' (serial)
+  #   - 'tcp:127.0.0.1:5760' (SITL simulation)
+  default_string: 'udp:127.0.0.1:14550'
+  baud_rate: 921600  # For serial connections
+  timeout: 30  # Connection timeout in seconds
+
+# Flight Parameters
+flight:
+  # Altitude limits (meters)
+  min_altitude: 2.0
+  max_altitude: 50.0
+  default_altitude: 10.0
+  
+  # Speed limits (m/s)
+  min_speed: 0.5
+  max_speed: 10.0
+  default_speed: 5.0
+  
+  # Takeoff parameters
+  takeoff_altitude: 10.0
+  takeoff_climb_rate: 1.0  # m/s
+  
+  # Landing parameters
+  landing_descent_rate: 1.0  # m/s
+  landing_threshold_altitude: 0.3  # meters
+  
+  # Loiter parameters
+  loiter_radius: 5.0  # meters
+  loiter_time: 10.0  # seconds
+
+# Safety Parameters
+safety:
+  # Battery thresholds (voltage)
+  battery_critical: 10.5  # Return to launch
+  battery_warning: 11.1   # Warning alert
+  battery_full: 12.6      # Fully charged
+  
+  # GPS requirements
+  gps_min_satellites: 6
+  gps_min_hdop: 2.0  # Lower is better
+  
+  # Pre-arm checks
+  require_gps_lock: true
+  require_home_set: true
+  check_battery_level: true
+  check_rc_connection: true
+  
+  # Failsafe settings
+  enable_geofence: true
+  enable_battery_failsafe: true
+  enable_gps_failsafe: true
+  
+  # Emergency landing
+  emergency_descent_rate: 2.0  # m/s
+
+# Geofencing
+geofence:
+  enabled: true
+  # Fence type: 'cylinder' or 'polygon'
+  type: 'cylinder'
+  
+  # Cylinder fence (center at home position)
+  radius: 100.0  # meters
+  
+  # Altitude fence
+  min_altitude: 2.0
+  max_altitude: 50.0
+  
+  # Action on breach: 'RTL', 'LAND', 'BRAKE'
+  breach_action: 'RTL'
+
+# Mission Parameters
+mission:
+  # Waypoint acceptance radius (meters)
+  waypoint_radius: 2.0
+  
+  # Mission completion action: 'RTL', 'LAND', 'LOITER'
+  completion_action: 'RTL'
+  
+  # Delay at each waypoint (seconds)
+  waypoint_delay: 0.0
+  
+  # Auto-continue to next waypoint
+  auto_continue: true
+
+# Telemetry and Logging
+telemetry:
+  # Update rates (Hz)
+  position_rate: 10
+  attitude_rate: 10
+  battery_rate: 1
+  gps_rate: 1
+  
+  # Data logging
+  enable_logging: true
+  log_directory: 'logs'
+  log_level: 'INFO'  # DEBUG, INFO, WARNING, ERROR
+  
+  # Console output
+  verbose: true
+  print_telemetry: true
+
+# Advanced Parameters
+advanced:
+  # RC channel mapping
+  rc_throttle_channel: 3
+  rc_mode_channel: 5
+  
+  # Flight modes
+  default_guided_mode: 'GUIDED'
+  default_auto_mode: 'AUTO'
+  
+  # Timeout settings
+  command_timeout: 10.0  # seconds
+  arm_timeout: 10.0
+  mode_change_timeout: 5.0
+  
+  # Retry settings
+  max_connection_retries: 3
+  max_command_retries: 3
+
+# Simulation Settings (for testing)
+simulation:
+  enabled: false
+  home_location:
+    lat: 37.7749  # San Francisco
+    lon: -122.4194
+    alt: 0
+  wind_speed: 0.0  # m/s
+  wind_direction: 0.0  # degrees

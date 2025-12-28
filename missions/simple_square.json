@@ -1,0 +1,49 @@
+{
+  "name": "Simple Square Pattern",
+  "description": "Fly a 20m x 20m square pattern at 10m altitude",
+  "default_altitude": 10.0,
+  "default_speed": 3.0,
+  "waypoints": [
+    {
+      "id": 1,
+      "lat": 37.7749,
+      "lon": -122.4194,
+      "alt": 10.0,
+      "description": "Northeast corner"
+    },
+    {
+      "id": 2,
+      "lat": 37.7751,
+      "lon": -122.4194,
+      "alt": 10.0,
+      "description": "Southeast corner"
+    },
+    {
+      "id": 3,
+      "lat": 37.7751,
+      "lon": -122.4196,
+      "alt": 10.0,
+      "description": "Southwest corner"
+    },
+    {
+      "id": 4,
+      "lat": 37.7749,
+      "lon": -122.4196,
+      "alt": 10.0,
+      "description": "Northwest corner"
+    },
+    {
+      "id": 5,
+      "lat": 37.7749,
+      "lon": -122.4194,
+      "alt": 10.0,
+      "description": "Return to start"
+    }
+  ],
+  "notes": [
+    "This mission creates a square flight pattern",
+    "Replace coordinates with your actual location",
+    "Each side is approximately 20 meters",
+    "Mission completes with RTL (Return to Launch)"
+  ]
+}
